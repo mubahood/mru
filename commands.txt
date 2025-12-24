@@ -1,0 +1,32 @@
+Mcreate MRU students information Model and Controller: 
+analyze all tables and detrmine which table is perfect for representing a MRU student table.
+but rememer this table may have some necessary relationships with other tables. so do this process very carefully and with knowledge of our coding standards and best practices.
+
+
+carefully follow these guidelines in this file: MRU_MODEL_CONTROLLER_GUIDELINES.md
+
+you must first think and understand its meaning and releavant relationships and its purpose
+
+
+then
+
+We already have a relevant table to serve for this model, Carefully analyze the table structure and relationships, then create a Laravel model named MruFaculty that accurately represents the data.
+Ensure it is perfect and error free and follows best practices and our coding standards.
+- ensure you specify the correct table name if it does not follow Laravel's naming conventions.
+- A Model derived from mru must start with Mru prefix.
+- define all necessary relationships with other models based on foreign keys and associations in the database.
+- include any relevant scopes or accessors that would be useful for querying or manipulating model's data.
+Next, create a corresponding larvel-admin controller following best practices. ensure you re-align the grid and the form to display and manage faculty data effectively.
+- include all relevant fields in the grid view, with appropriate filters and sorting options.
+- in the form view, ensure all necessary fields are present with proper validation rules.
+- implement any custom actions or tools that would enhance the management of model's records.
+
+remove unnecessary computations so the table can be fast in loading.
+
+keep the forms simple, strcitly to collect only that fields that are required. dont use tabs in the form, let the form be just sstraught. no need of help hints.
+
+when done, add the controller in laravel admin routes. ensure it start with mru- and uses the correct naming conventions.
+
+Finally, double-check everything to ensure it is perfect and error-free before finalizing.
+
+add the endpoint to laravel-admin menu uner mru submenu. 

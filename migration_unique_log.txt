@@ -1,0 +1,40 @@
+========================================
+MRU DATABASE CONSOLIDATION MIGRATION
+========================================
+Start Time: Fri Dec 19 23:10:03 EAT 2025
+
+[0;34m[23:10:03][0m Step 1: Get list of all tables to migrate...
+
+[0;34m[23:10:03][0m Step 2: Migrating unique tables from mru_campus_dynamics...
+[0;34m[23:10:03][0m Migrating: mru_campus_dynamics.acad_acadyears → mru_main.mru_acad_acadyears (26 rows)
+[0;32m✓[0m mru_acad_acadyears: 26 rows verified
+[0;34m[23:10:03][0m Migrating: mru_campus_dynamics.acad_activity_log → mru_main.mru_acad_activity_log (162152 rows)
+[0;32m✓[0m mru_acad_activity_log: 162152 rows verified
+[0;34m[23:10:03][0m Migrating: mru_campus_dynamics.acad_admissionletterfees → mru_main.mru_acad_admissionletterfees (0 rows)
+[0;32m✓[0m mru_acad_admissionletterfees: 0 rows verified
+[0;34m[23:10:03][0m Migrating: mru_campus_dynamics.acad_admissionletters → mru_main.mru_acad_admissionletters (2 rows)
+[0;32m✓[0m mru_acad_admissionletters: 2 rows verified
+[0;34m[23:10:04][0m Migrating: mru_campus_dynamics.acad_applic_settings → mru_main.mru_acad_applic_settings (1 rows)
+[0;32m✓[0m mru_acad_applic_settings: 1 rows verified
+[0;34m[23:10:04][0m Migrating: mru_campus_dynamics.acad_applicant_choices → mru_main.mru_acad_applicant_choices (4215 rows)
+[0;32m✓[0m mru_acad_applicant_choices: 4215 rows verified
+[0;34m[23:10:04][0m Migrating: mru_campus_dynamics.acad_applicant_occupations → mru_main.mru_acad_applicant_occupations (9 rows)
+[0;32m✓[0m mru_acad_applicant_occupations: 9 rows verified
+[0;34m[23:10:04][0m Migrating: mru_campus_dynamics.acad_applicant_performance → mru_main.mru_acad_applicant_performance (56 rows)
+[0;32m✓[0m mru_acad_applicant_performance: 56 rows verified
+[0;34m[23:10:04][0m Migrating: mru_campus_dynamics.acad_applicant_subjects → mru_main.mru_acad_applicant_subjects (78 rows)
+[0;32m✓[0m mru_acad_applicant_subjects: 78 rows verified
+[0;34m[23:10:04][0m Migrating: mru_campus_dynamics.acad_applications → mru_main.mru_acad_applications (4237 rows)
+[0;32m✓[0m mru_acad_applications: 4237 rows verified
+
+[0;34m[23:10:04][0m Progress: 10 tables, 170776 rows migrated
+
+[0;34m[23:10:04][0m Migrating: mru_campus_dynamics.acad_bridgequalification → mru_main.mru_acad_bridgequalification (138 rows)
+[0;32m✓[0m mru_acad_bridgequalification: 138 rows verified
+[0;34m[23:10:04][0m Migrating: mru_campus_dynamics.acad_calenda → mru_main.mru_acad_calenda (2 rows)
+[0;32m✓[0m mru_acad_calenda: 2 rows verified
+[0;34m[23:10:04][0m Migrating: mru_campus_dynamics.acad_calendermonths → mru_main.mru_acad_calendermonths (12 rows)
+[0;32m✓[0m mru_acad_calendermonths: 12 rows verified
+[0;34m[23:10:04][0m Migrating: mru_campus_dynamics.acad_campuses → mru_main.mru_acad_campuses (3 rows)
+ERROR 1062 (23000) at line 1: Duplicate entry '1' for key 'PRIMARY'
+[0;31m✗[0m mru_acad_campuses: MISMATCH! Expected 3, got 0

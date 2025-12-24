@@ -1,0 +1,4 @@
+Traceback (most recent call last):
+  File "/Applications/MAMP/htdocs/mru/migrate_to_mru_main.py", line 8, in <module>
+    import mysql.connector
+ModuleNotFoundError: No module named 'mysql'

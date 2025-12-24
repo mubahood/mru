@@ -1,0 +1,217 @@
+<?php
+
+use Illuminate\Support\Facades\Log;
+
+Log::info('Admin bootstrap started');
+
+try {
+/*     $fp = fsockopen("ssl://schooldynamics.ug", 443, $e, $s, 1);
+    if ($fp) {
+        $final_url = "https://schooldynamics.ug/api/school-pay-reconcile";
+        fwrite($fp, "GET /api/school-pay-reconcile HTTP/1.1\r\nHost: schooldynamics.ug\r\nConnection: Close\r\n\r\n");
+        fclose($fp);
+    } */
+} catch (\Exception $e) {
+    // Handle exception if needed
+    // echo "Error: " . $e->getMessage();
+}
+
+/**
+ * Laravel-admin - admin builder based on Laravel.
+ * @author z-song <https://github.com/z-song>
+ *
+ * Bootstraper for Admin.
+ *
+ * Here you can remove builtin form field:
+ * Encore\Admin\Form::forget(['map', 'editor']);
+ *
+ * Or extend custom form field:
+ * Encore\Admin\Form::extend('php', PHPEditor::class);
+ *
+ * Or require js and css assets:
+ * Admin::css('/packages/prettydocs/css/styles.css');
+ * Admin::js('/packages/prettydocs/js/main.js');
+ *
+ */
+
+use Encore\Admin\Facades\Admin;
+use App\Admin\Extensions\Nav\Shortcut;
+use App\Admin\Extensions\Nav\Dropdown;
+use App\Models\Enterprise;
+use App\Models\MainCourse;
+use App\Models\MarkRecord;
+use App\Models\ParentCourse;
+use App\Models\StudentReportCard;
+use App\Models\Term;
+use App\Models\TheologyMarkRecord;
+use App\Models\Transaction;
+use App\Models\User;
+use App\Models\Utils;
+use Dflydev\DotAccessData\Util;
+use Encore\Admin\Auth\Database\Administrator;
+use Illuminate\Console\Scheduling\Event;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
+
+Utils::system_boot(Admin::user());
+
+//dd(Utils::docs_root()); 
+
+/* $rep = StudentReportCard::find(5120);
+$rep->download_self(); */
+
+
+/* $studentHasClass->new_curriculum_optional_subjects = rand(1, 100);
+$studentHasClass->save();
+dd($studentHasClass); 
+Encore\Admin\Form::forget(['map', 'editor']); */
+
+$u = Auth::user();
+if ($u != null) {
+    // Skip email verification check for existing admin users (enterprise_id <= 28)
+    $skipEmailVerification = $u->enterprise_id && $u->enterprise_id <= 28;
+    
+    if (!$skipEmailVerification) {
+        // Check email verification first - this is mandatory for new users only
+        $wizard = \App\Models\OnBoardWizard::where('administrator_id', $u->id)->first();
+        if (!$wizard || $wizard->email_is_verified != 'Yes') {
+            // Get current route to avoid infinite redirects
+            $currentRoute = request()->route() ? request()->route()->getName() : '';
+            
+            // Allow access to verification routes and logout
+            $allowedRoutes = [
+                'verification.notice',
+                'verification.verify',
+                'verification.send', 
+                'verification.check',
+                'admin.logout'
+            ];
+            
+            if (!in_array($currentRoute, $allowedRoutes)) {
+                // Redirect to email verification page
+                if (request()->ajax()) {
+                    response()->json(['redirect' => route('verification.notice')], 302)->send();
+                    exit;
+                } else {
+                    redirect()->route('verification.notice')->send();
+                    exit;
+                }
+            }
+        }
+    }
+    
+    if ($u->ent != null) {
+        if ($u->ent->has_valid_lisence != 'Yes') {
+            // die("System under maintenance. New features are being added. Please check back later.");
+            die('License for <b>' . $u->ent->name . '</b> has expired. Please contact, <b>Newline Technologies Ltd</b>. for renewal.');
+        }
+    }
+}
+
+if ($u != null) {
+    try {
+        $active_term = Admin::user()->ent->active_term();
+        $ent = Admin::user()->ent;
+        $ent->dp_year = $active_term->academic_year_id;
+        $ent->dp_term_id = $active_term->id;
+        $ent->save();
+        $u = User::find($u->id);
+        if($u != null) {
+            $u->getDefaultRole();
+        }
+    } catch (\Exception $e) {
+        //die($e->getMessage());
+    }
+    //Utils::system_boot($u);
+}
+
+
+Admin::navbar(function (\Encore\Admin\Widgets\Navbar $navbar) {
+
+
+
+    $u = Auth::user();
+
+
+    if ($u != null) {
+        if (isset($_GET['change_dpy_to'])) {
+            $t_id = ((int)(trim($_GET['change_dpy_to'])));
+            $t = Term::find($t_id);
+            if ($t != null) {
+                DB::update(
+                    "update enterprises set dp_year = ?, dp_term_id = ? where id = ? ",
+                    [
+                        $t->academic_year_id,
+                        $t->id,
+                        $t->enterprise_id,
+                    ]
+                );
+                Admin::script('window.location.replace("' . url('/') . '");');
+                return 'Loading...';
+            }
+        }
+    }
+
+    /* $navbar->left(view('admin.search-bar', [
+        'u' => $u
+    ])); */
+    $links = [];
+
+    if ($u != null) {
+
+        if ($u->isRole('super-admin')) {
+            $links = [
+                'Create new user' => admin_url('auth/users/create'),
+                'Create new enterprise' => admin_url('enterprises/create'),
+            ];
+        }
+        if ($u->isRole('admin')) {
+            $links = [
+                'Add new staff' => 'employees/create',
+            ];
+        }
+        if ($u->isRole('bursar')) {
+            $links = [
+                'School fees payment' => 'transactions/create',
+                'Transaction' => 'transactions/create',
+            ];
+        }
+
+        if ($u->isRole('dos')) {
+            $links = [
+                'Admit new student' => 'students/create',
+            ];
+        }
+
+        //$navbar->left(Shortcut::make($links, 'fa-plus')->title('ADD NEW'));
+        $u = Admin::user();
+        if ($u->isRole('dos', 'admin', 'bursar', 'super-admin', 'hm')) {
+            $navbar->left('<li><a href="javascript:;">WALLET: UGX ' . number_format($u->ent->wallet_balance) . '</a></li>');
+        }
+
+
+        /* $navbar->left(new Dropdown()); */
+
+        $check_list = [];
+
+        if ($u != null) {
+            $check_list = Utils::system_checklist($u);
+            $terms = Term::where([
+                'enterprise_id' => $u->enterprise_id
+            ])
+                ->orderBy('id', 'desc')
+                ->get();
+            $navbar->right(view('widgets.admin-links', [
+                'items' => $check_list,
+                'u' => $u,
+                'terms' => $terms
+            ]));
+        }
+    }
+});
+
+Admin::css('/css/jquery-confirm.min.css');
+Admin::js('/js/charts.js');
+
+Admin::css(url('/assets/bootstrap.css'));
