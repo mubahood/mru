@@ -135,6 +135,9 @@ class MruStudent extends Model
         'studCampus',
         'StudentHall',
         'billingID',
+        'is_processed',
+        'is_processed_successful',
+        'processing_reason',
     ];
 
     /**

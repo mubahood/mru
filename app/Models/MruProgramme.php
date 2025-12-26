@@ -16,9 +16,16 @@ use Illuminate\Database\Eloquent\Builder;
  * 
  * Database Structure:
  * - Primary Key: progcode (non-incrementing string)
+ * - Unique ID: id (auto-incrementing integer for internal references)
  * - 128 programmes in total
  * - Related to: faculty (acad_faculty), results (acad_results)
  * 
+ * Semester Configuration:
+ * - total_semesters: Maximum number of semesters for the programme
+ * - number_of_semester_X_courses: Number of courses per semester (1-12)
+ * - Facilitates automatic course allocation and programme planning
+ * 
+ * @property int $id Auto-increment unique identifier
  * @property string $progcode Programme code (PK) - e.g., "ACAD", "BED"
  * @property string $progname Full programme name
  * @property float $mincredit Minimum credit hours required
@@ -28,6 +35,19 @@ use Illuminate\Database\Eloquent\Builder;
  * @property string $faculty_code Faculty code (FK to acad_faculty)
  * @property int $levelCode Programme level (1=Certificate, 2=Diploma, 3=Degree, 4=Masters, 5=PhD)
  * @property string $study_system Study system (Semester/Session)
+ * @property int $total_semesters Total number of semesters in programme
+ * @property int|null $number_of_semester_1_courses Number of courses in semester 1
+ * @property int|null $number_of_semester_2_courses Number of courses in semester 2
+ * @property int|null $number_of_semester_3_courses Number of courses in semester 3
+ * @property int|null $number_of_semester_4_courses Number of courses in semester 4
+ * @property int|null $number_of_semester_5_courses Number of courses in semester 5
+ * @property int|null $number_of_semester_6_courses Number of courses in semester 6
+ * @property int|null $number_of_semester_7_courses Number of courses in semester 7
+ * @property int|null $number_of_semester_8_courses Number of courses in semester 8
+ * @property int|null $number_of_semester_9_courses Number of courses in semester 9
+ * @property int|null $number_of_semester_10_courses Number of courses in semester 10
+ * @property int|null $number_of_semester_11_courses Number of courses in semester 11
+ * @property int|null $number_of_semester_12_courses Number of courses in semester 12
  * 
  * @method static Builder search(string $term) Search programmes by code, name, or abbreviation
  * @method static Builder forFaculty(string $facultyCode) Get programmes for specific faculty
@@ -40,7 +60,8 @@ use Illuminate\Database\Eloquent\Builder;
  * 
  * @package App\Models
  * @author MRU Development Team
- * @version 1.0.0
+ * @version 2.0.0
+ * @updated 2025-12-26 - Added semester configuration fields
  */
 class MruProgramme extends Model
 {
@@ -94,6 +115,23 @@ class MruProgramme extends Model
         'faculty_code',
         'levelCode',
         'study_system',
+        'total_semesters',
+        'number_of_semester_1_courses',
+        'number_of_semester_2_courses',
+        'number_of_semester_3_courses',
+        'number_of_semester_4_courses',
+        'number_of_semester_5_courses',
+        'number_of_semester_6_courses',
+        'number_of_semester_7_courses',
+        'number_of_semester_8_courses',
+        'number_of_semester_9_courses',
+        'number_of_semester_10_courses',
+        'number_of_semester_11_courses',
+        'number_of_semester_12_courses',
+        'is_verified',
+        'is_processed',
+        'process_passed',
+        'error_mess',
     ];
 
     /**
@@ -102,6 +140,7 @@ class MruProgramme extends Model
      * @var array<string, string>
      */
     protected $casts = [
+        'id' => 'integer',
         'progcode' => 'string',
         'progname' => 'string',
         'mincredit' => 'float',
@@ -111,6 +150,19 @@ class MruProgramme extends Model
         'faculty_code' => 'string',
         'levelCode' => 'integer',
         'study_system' => 'string',
+        'total_semesters' => 'integer',
+        'number_of_semester_1_courses' => 'integer',
+        'number_of_semester_2_courses' => 'integer',
+        'number_of_semester_3_courses' => 'integer',
+        'number_of_semester_4_courses' => 'integer',
+        'number_of_semester_5_courses' => 'integer',
+        'number_of_semester_6_courses' => 'integer',
+        'number_of_semester_7_courses' => 'integer',
+        'number_of_semester_8_courses' => 'integer',
+        'number_of_semester_9_courses' => 'integer',
+        'number_of_semester_10_courses' => 'integer',
+        'number_of_semester_11_courses' => 'integer',
+        'number_of_semester_12_courses' => 'integer',
     ];
 
     /**
@@ -753,5 +805,119 @@ class MruProgramme extends Model
                 return $programme;
             })
             ->sortByDesc('student_count');
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Semester Configuration Methods
+    |--------------------------------------------------------------------------
+    */
+
+    /**
+     * Get the number of courses for a specific semester
+     *
+     * @param int $semesterNumber Semester number (1-12)
+     * @return int|null Number of courses or null if not set
+     */
+    public function getCoursesForSemester(int $semesterNumber): ?int
+    {
+        if ($semesterNumber < 1 || $semesterNumber > 12) {
+            return null;
+        }
+
+        $field = "number_of_semester_{$semesterNumber}_courses";
+        return $this->$field;
+    }
+
+    /**
+     * Set the number of courses for a specific semester
+     *
+     * @param int $semesterNumber Semester number (1-12)
+     * @param int|null $courseCount Number of courses
+     * @return bool Success status
+     */
+    public function setCoursesForSemester(int $semesterNumber, ?int $courseCount): bool
+    {
+        if ($semesterNumber < 1 || $semesterNumber > 12) {
+            return false;
+        }
+
+        $field = "number_of_semester_{$semesterNumber}_courses";
+        $this->$field = $courseCount;
+        return true;
+    }
+
+    /**
+     * Get all semester course configurations as an array
+     *
+     * @return array Array of semester => course_count
+     */
+    public function getSemesterStructure(): array
+    {
+        $structure = [];
+        for ($i = 1; $i <= $this->total_semesters; $i++) {
+            $field = "number_of_semester_{$i}_courses";
+            if ($this->$field !== null) {
+                $structure[$i] = $this->$field;
+            }
+        }
+        return $structure;
+    }
+
+    /**
+     * Get total number of courses across all semesters
+     *
+     * @return int Total course count
+     */
+    public function getTotalCourses(): int
+    {
+        $total = 0;
+        for ($i = 1; $i <= 12; $i++) {
+            $field = "number_of_semester_{$i}_courses";
+            $total += $this->$field ?? 0;
+        }
+        return $total;
+    }
+
+    /**
+     * Check if semester configuration is complete
+     *
+     * @return bool True if all semesters up to total_semesters have course counts
+     */
+    public function hasCompleteSemesterConfiguration(): bool
+    {
+        if ($this->total_semesters == 0) {
+            return false;
+        }
+
+        for ($i = 1; $i <= $this->total_semesters; $i++) {
+            $field = "number_of_semester_{$i}_courses";
+            if ($this->$field === null || $this->$field <= 0) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /**
+     * Get semester configuration summary
+     *
+     * @return string Human-readable summary
+     */
+    public function getSemesterConfigurationSummary(): string
+    {
+        if ($this->total_semesters == 0) {
+            return 'Not configured';
+        }
+
+        $structure = $this->getSemesterStructure();
+        if (empty($structure)) {
+            return "{$this->total_semesters} semesters (courses not configured)";
+        }
+
+        $totalCourses = $this->getTotalCourses();
+        $configuredSemesters = count($structure);
+
+        return "{$configuredSemesters}/{$this->total_semesters} semesters configured, {$totalCourses} total courses";
     }
 }

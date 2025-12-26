@@ -7,23 +7,73 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
 
+/**
+ * AcademicYear Model
+ * 
+ * Represents academic years in the system (academic_years table).
+ * This is the MAIN academic year table used throughout the system.
+ * 
+ * IMPORTANT: Academic Year Structure
+ * ----------------------------------
+ * DO NOT CONFUSE WITH:
+ * - MruAcademicYear (acad_acadyears table) - Legacy table for historical results only
+ * 
+ * This table (academic_years) is used by:
+ * - Terms/Semesters (terms table via academic_year_id)
+ * - Student Semester Enrollments (student_has_semeters table)
+ * - Academic Classes (academic_classes table)
+ * - University Classes (theology_classes table)
+ * 
+ * Auto-Creation of Semesters:
+ * When a new AcademicYear is created for a University enterprise,
+ * it automatically creates 2 semesters (Semester 1 and 2) via boot() method.
+ * For other enterprise types, it creates 3 terms.
+ * 
+ * @property int $id Primary key
+ * @property int $enterprise_id Enterprise ID
+ * @property string $name Academic year name (e.g., "2024/2025")
+ * @property date $starts Start date
+ * @property date $ends End date
+ * @property string $details Additional details
+ * @property int $is_active Whether this is the active academic year (1=Yes, 0=No)
+ * @property string $process_data Processing status
+ * @property \Carbon\Carbon $created_at
+ * @property \Carbon\Carbon $updated_at
+ */
 class AcademicYear extends Model
 {
     use HasFactory;
+    
+    /**
+     * Get the enterprise that owns this academic year.
+     */
     function enterprise()
     {
         return $this->belongsTo(Enterprise::class);
     }
 
+    /**
+     * Get all theology classes for this academic year.
+     */
     function theology_classes()
     {
         return $this->hasMany(TheologyClass::class, 'academic_year_id');
     }
 
+    /**
+     * Get all classes for this academic year.
+     */
     function classes()
     {
         return $this->hasMany(AcademicClass::class, 'academic_year_id');
     }
+    
+    /**
+     * Get all terms/semesters for this academic year.
+     * 
+     * For Universities: Returns 2 semesters (Semester 1 and 2)
+     * For Other Enterprises: Returns 3 terms (Term 1, 2, and 3)
+     */
     function terms()
     {
         return $this->hasMany(Term::class);

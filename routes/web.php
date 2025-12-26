@@ -11,6 +11,7 @@ use App\Http\Controllers\OnboardingController;
 use App\Http\Controllers\PrintController2;
 use App\Http\Controllers\ReportCardsPrintingController;
 use App\Http\Controllers\SitemapController;
+use App\Http\Controllers\StudentSemesterEnrollmentController;
 use App\Models\AcademicClass;
 use App\Models\AcademicClassFee;
 use App\Models\Account;
@@ -82,6 +83,10 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use PhpOffice\PhpSpreadsheet\Reader\Xlsx;
+
+Route::get('fix-student-semester-enrollment', [StudentSemesterEnrollmentController::class, 'fixEnrollments'])
+    ->middleware('admin')
+    ->name('fix-student-semester-enrollment');
 
 Route::get('process-school-issues', function (Request $request) {
   $enterprise_id = $request->get('enterprise_id', null);

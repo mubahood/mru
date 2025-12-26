@@ -11,13 +11,20 @@ Route::group([
     'as'            => config('admin.route.prefix') . '.',
 ], function (Router $router) {
 
+    // MRU Dashboard
+    $router->get('mru-dashboard', 'MruDashboardController@index')->name('mru-dashboard');
+
     $router->resource('mru-results', MruResultController::class);
     $router->resource('mru-faculties', MruFacultyController::class);
     $router->resource('mru-programmes', MruProgrammeController::class);
+    $router->get('mru-programmes-configurations/auto-fill', 'MruProgrammeConfigurationController@autoFill');
+    $router->resource('mru-programmes-configurations', MruProgrammeConfigurationController::class);
     $router->resource('mru-courses', MruCourseController::class);
     $router->resource('mru-course-registrations', MruCourseRegistrationController::class);
     $router->resource('mru-students', MruStudentController::class);
     $router->resource('mru-academic-years', MruAcademicYearController::class);
+    $router->resource('mru-semesters', MruSemesterController::class);
+    $router->resource('mru-student-semester-enrollments', MruStudentSemesterEnrollmentController::class);
     
     // MRU Marks & Exam System
     $router->resource('mru-exam-results-faculty', MruExamResultFacultyController::class);

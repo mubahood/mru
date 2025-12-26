@@ -174,6 +174,16 @@ class MruCourseRegistration extends Model
     }
 
     /**
+     * Get the student this registration belongs to
+     *
+     * @return BelongsTo
+     */
+    public function student(): BelongsTo
+    {
+        return $this->belongsTo(MruStudent::class, 'regno', 'regno');
+    }
+
+    /**
      * Get the programme this registration belongs to
      *
      * @return BelongsTo

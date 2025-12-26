@@ -247,6 +247,33 @@ class MruProgrammeController extends AdminController
 
         /*
         |--------------------------------------------------------------------------
+        | Semester Configuration Section
+        |--------------------------------------------------------------------------
+        */
+
+        $show->panel()
+            ->title('Semester Configuration')
+            ->style('info');
+
+        $show->field('total_semesters', __('Total Semesters'))
+            ->badge('primary');
+
+        $show->field('semester_structure', __('Courses per Semester'))
+            ->as(function () {
+                $structure = [];
+                for ($i = 1; $i <= 12; $i++) {
+                    $field = "number_of_semester_{$i}_courses";
+                    if ($this->$field !== null) {
+                        $structure[] = "Semester {$i}: " . $this->$field . " courses";
+                    }
+                }
+                return !empty($structure) ? implode(', ', $structure) : 'Not configured';
+            });
+
+        $show->divider();
+
+        /*
+        |--------------------------------------------------------------------------
         | Academic Details Section
         |--------------------------------------------------------------------------
         */
@@ -381,6 +408,80 @@ class MruProgrammeController extends AdminController
             $form->decimal('mincredit', __('Minimum Credit Hours'))
                 ->rules('nullable|numeric|min:0|max:500')
                 ->help('Minimum credit hours required to complete the programme');
+
+        })->tab('Semester Configuration', function ($form) {
+            
+            $form->html('<div class="alert alert-info">
+                <h4><i class="icon fa fa-calendar"></i> Semester Structure Configuration</h4>
+                <p>Configure the total number of semesters and the number of courses per semester for this programme. This information facilitates automatic course allocation and programme planning.</p>
+                <ul>
+                    <li><strong>Total Semesters:</strong> Maximum number of semesters in this programme (e.g., 6 for 3-year degree, 8 for 4-year degree)</li>
+                    <li><strong>Courses per Semester:</strong> Number of courses offered in each semester (leave blank for semesters not applicable)</li>
+                    <li><strong>Note:</strong> Only fill in semester course counts up to the total number of semesters</li>
+                </ul>
+            </div>');
+
+            $form->number('total_semesters', __('Total Number of Semesters'))
+                ->rules('required|integer|min:0|max:12')
+                ->default(0)
+                ->help('Total number of semesters in this programme (0-12)')
+                ->required();
+
+            $form->divider('Courses Per Semester');
+
+            // Semester 1-6 (Primary semesters)
+            $form->html('<h4 style="margin-top: 20px; color: #666;">Academic Year 1-3</h4>');
+            
+            $form->number('number_of_semester_1_courses', __('Semester 1 Courses'))
+                ->rules('nullable|integer|min:0|max:20')
+                ->help('Number of courses in semester 1');
+
+            $form->number('number_of_semester_2_courses', __('Semester 2 Courses'))
+                ->rules('nullable|integer|min:0|max:20')
+                ->help('Number of courses in semester 2');
+
+            $form->number('number_of_semester_3_courses', __('Semester 3 Courses'))
+                ->rules('nullable|integer|min:0|max:20')
+                ->help('Number of courses in semester 3');
+
+            $form->number('number_of_semester_4_courses', __('Semester 4 Courses'))
+                ->rules('nullable|integer|min:0|max:20')
+                ->help('Number of courses in semester 4');
+
+            $form->number('number_of_semester_5_courses', __('Semester 5 Courses'))
+                ->rules('nullable|integer|min:0|max:20')
+                ->help('Number of courses in semester 5');
+
+            $form->number('number_of_semester_6_courses', __('Semester 6 Courses'))
+                ->rules('nullable|integer|min:0|max:20')
+                ->help('Number of courses in semester 6');
+
+            // Semester 7-12 (Extended programmes)
+            $form->html('<h4 style="margin-top: 20px; color: #666;">Academic Year 4-6 (Extended Programmes)</h4>');
+
+            $form->number('number_of_semester_7_courses', __('Semester 7 Courses'))
+                ->rules('nullable|integer|min:0|max:20')
+                ->help('Number of courses in semester 7');
+
+            $form->number('number_of_semester_8_courses', __('Semester 8 Courses'))
+                ->rules('nullable|integer|min:0|max:20')
+                ->help('Number of courses in semester 8');
+
+            $form->number('number_of_semester_9_courses', __('Semester 9 Courses'))
+                ->rules('nullable|integer|min:0|max:20')
+                ->help('Number of courses in semester 9');
+
+            $form->number('number_of_semester_10_courses', __('Semester 10 Courses'))
+                ->rules('nullable|integer|min:0|max:20')
+                ->help('Number of courses in semester 10');
+
+            $form->number('number_of_semester_11_courses', __('Semester 11 Courses'))
+                ->rules('nullable|integer|min:0|max:20')
+                ->help('Number of courses in semester 11');
+
+            $form->number('number_of_semester_12_courses', __('Semester 12 Courses'))
+                ->rules('nullable|integer|min:0|max:20')
+                ->help('Number of courses in semester 12');
 
         })->tab('Additional Information', function ($form) {
             

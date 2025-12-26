@@ -170,6 +170,17 @@ class MruResult extends Model
     }
 
     /**
+     * Get the programme associated with this result.
+     * Alias for program() to match MRU naming convention
+     *
+     * @return BelongsTo
+     */
+    public function programme(): BelongsTo
+    {
+        return $this->belongsTo(MruProgramme::class, 'progid', 'progcode');
+    }
+
+    /**
      * Scope: Filter results by student registration number
      *
      * @param Builder $query

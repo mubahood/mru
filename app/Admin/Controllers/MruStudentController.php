@@ -114,6 +114,35 @@ class MruStudentController extends AdminController
         // Nationality
         $grid->column('nationality', __('Nationality'))->sortable();
 
+        // Processing Status
+        $grid->column('is_processed', 'Processed') 
+            ->display(function ($value) {
+                return $value === 'Yes' 
+                    ? '<span class="label label-success">Yes</span>' 
+                    : '<span class="label label-danger">No</span>';
+            });
+
+        $grid->column('is_processed_successful', 'Success')
+            ->filter('select', ['Yes' => 'Yes', 'No' => 'No'])
+            ->display(function ($value) {
+                if ($this->is_processed === 'Yes') {
+                    return $value === 'Yes' 
+                        ? '<span class="label label-success">Yes</span>' 
+                        : '<span class="label label-danger">No</span>';
+                }
+                return '<span class="label label-default">-</span>';
+            })
+            ->sortable();
+
+        $grid->column('processing_reason', 'Reason')
+            ->display(function ($value) {
+                if ($value) {
+                    return '<span style="color: #e74c3c; font-size: 11px;">' . htmlspecialchars(substr($value, 0, 50)) . ($value && strlen($value) > 50 ? '...' : '') . '</span>';
+                }
+                return '-';
+            })
+            ->sortable();
+
         // Show Details
         $grid->column('show_details', __('Show Details'))
             ->display(function () {
@@ -176,6 +205,17 @@ class MruStudentController extends AdminController
 
             // Phone
             $filter->like('studPhone', __('Phone'));
+
+            // Processing Status
+            $filter->equal('is_processed', __('Processed'))
+                ->select(['Yes' => 'Yes', 'No' => 'No']);
+
+            $filter->equal('is_processed_successful', __('Success'))
+                ->select(['Yes' => 'Yes', 'No' => 'No']);
+
+            $filter->where(function ($query) {
+                $query->whereNotNull('processing_reason')->where('processing_reason', '!=', '');
+            }, 'Has Errors')->checkbox('1');
         });
 
         /*
@@ -206,6 +246,9 @@ class MruStudentController extends AdminController
             $export->column('entryyear', 'Entry Year');
             $export->column('studsesion', 'Session');
             $export->column('email', 'Email');
+            $export->column('is_processed', 'Processed');
+            $export->column('is_processed_successful', 'Success');
+            $export->column('processing_reason', 'Processing Reason');
             $export->column('studPhone', 'Phone');
             $export->column('nationality', 'Nationality');
         });
