@@ -255,6 +255,31 @@
         font-size: 14px;
     }
     
+    .students-year-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 10px;
+        font-size: 12px;
+    }
+    
+    .students-year-table thead th {
+        background: {{ $primaryColor }}15;
+        color: {{ $primaryColor }};
+        padding: 10px 8px;
+        border: 1px solid {{ $primaryColor }}30;
+        font-weight: 700;
+        font-size: 12px;
+    }
+    
+    .students-year-table tbody td {
+        padding: 8px;
+        border: 1px solid #f0f0f0;
+    }
+    
+    .students-year-table tbody tr:hover {
+        background: #fafafa;
+    }
+    
     @media (max-width: 768px) {
         .stat-card-icon {
             width: 40px;
@@ -494,6 +519,75 @@
                 <a href="{{ admin_url('mru-courses') }}" class="quick-link-btn">
                     <i class="fa fa-book"></i> Manage Courses
                 </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Students by Programme and Year of Study -->
+    <div class="row">
+        <div class="col-md-12">
+            <div class="info-box">
+                <h3><i class="fa fa-table"></i> Students by Programme & Year of Study</h3>
+                <div style="overflow-x: auto;">
+                    <table class="students-year-table">
+                        <thead>
+                            <tr>
+                                <th style="width: 40%; text-align: left;">Programme</th>
+                                @for($year = 1; $year <= $studentsByProgrammeYear['max_year']; $year++)
+                                    <th style="width: {{ 60 / $studentsByProgrammeYear['max_year'] }}%; text-align: center;">Year {{ $year }}</th>
+                                @endfor
+                                <th style="width: 10%; text-align: center; background: {{ $primaryColor }}; color: white;">Total</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @php $grandTotal = 0; @endphp
+                            @foreach($studentsByProgrammeYear['programmes'] as $programme)
+                                @php 
+                                    $progTotal = array_sum($programme['years']);
+                                    $grandTotal += $progTotal;
+                                @endphp
+                                <tr>
+                                    <td style="font-weight: 600; font-size: 11px;">
+                                        {{ $programme['abbrev'] ?? $programme['progid'] }}
+                                    </td>
+                                    @for($year = 1; $year <= $studentsByProgrammeYear['max_year']; $year++)
+                                        <td style="text-align: center; font-size: 13px; font-weight: 600; color: {{ $programme['years'][$year] > 0 ? $primaryColor : '#ccc' }};">
+                                            {{ $programme['years'][$year] > 0 ? number_format($programme['years'][$year]) : '-' }}
+                                        </td>
+                                    @endfor
+                                    <td style="text-align: center; font-weight: 700; font-size: 14px; background: #f5f5f5; color: {{ $primaryColor }};">
+                                        {{ number_format($progTotal) }}
+                                    </td>
+                                </tr>
+                            @endforeach
+                            @if(empty($studentsByProgrammeYear['programmes']))
+                                <tr>
+                                    <td colspan="{{ $studentsByProgrammeYear['max_year'] + 2 }}" style="text-align: center; color: #999; padding: 20px;">
+                                        No student data found for the selected academic year
+                                    </td>
+                                </tr>
+                            @else
+                                <tr style="background: {{ $primaryColor }}10; border-top: 2px solid {{ $primaryColor }};">
+                                    <td style="font-weight: 700; font-size: 12px; color: {{ $primaryColor }};">GRAND TOTAL</td>
+                                    @for($year = 1; $year <= $studentsByProgrammeYear['max_year']; $year++)
+                                        @php
+                                            $yearTotal = 0;
+                                            foreach($studentsByProgrammeYear['programmes'] as $prog) {
+                                                $yearTotal += $prog['years'][$year] ?? 0;
+                                            }
+                                        @endphp
+                                        <td style="text-align: center; font-weight: 700; font-size: 14px; color: {{ $primaryColor }};">
+                                            {{ number_format($yearTotal) }}
+                                        </td>
+                                    @endfor
+                                    <td style="text-align: center; font-weight: 700; font-size: 15px; background: {{ $primaryColor }}; color: white;">
+                                        {{ number_format($grandTotal) }}
+                                    </td>
+                                </tr>
+                            @endif
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
     </div>

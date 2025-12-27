@@ -19,9 +19,13 @@ Route::group([
     $router->resource('mru-programmes', MruProgrammeController::class);
     $router->get('mru-programmes-configurations/auto-fill', 'MruProgrammeConfigurationController@autoFill');
     $router->resource('mru-programmes-configurations', MruProgrammeConfigurationController::class);
+    $router->resource('mru-programme-courses', MruProgrammeCourseController::class);
+    $router->resource('mru-curriculums', MruCurriculumController::class);
     $router->resource('mru-courses', MruCourseController::class);
     $router->resource('mru-course-registrations', MruCourseRegistrationController::class);
     $router->resource('mru-students', MruStudentController::class);
+    $router->get('mru-students/{id}/transcript', 'MruStudentController@printTranscript')
+        ->name('mru-students.transcript');
     $router->resource('mru-academic-years', MruAcademicYearController::class);
     $router->resource('mru-semesters', MruSemesterController::class);
     $router->resource('mru-student-semester-enrollments', MruStudentSemesterEnrollmentController::class);
@@ -39,6 +43,8 @@ Route::group([
         ->name('mru-academic-result-exports.download-excel');
     $router->get('mru-academic-result-exports/{id}/download-pdf', 'MruAcademicResultExportController@downloadPdf')
         ->name('mru-academic-result-exports.download-pdf');
+    $router->get('mru-academic-result-exports/{id}/view-html', 'MruAcademicResultExportController@viewHtml')
+        ->name('mru-academic-result-exports.view-html');
 
     $router->resource('employees-batch-importers', EmployeesBatchImporterController::class);
     $router->resource('employees', EmployeesController::class);

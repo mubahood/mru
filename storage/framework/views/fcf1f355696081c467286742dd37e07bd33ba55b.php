@@ -253,6 +253,31 @@
         font-size: 14px;
     }
     
+    .students-year-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 10px;
+        font-size: 12px;
+    }
+    
+    .students-year-table thead th {
+        background: <?php echo e($primaryColor, false); ?>15;
+        color: <?php echo e($primaryColor, false); ?>;
+        padding: 10px 8px;
+        border: 1px solid <?php echo e($primaryColor, false); ?>30;
+        font-weight: 700;
+        font-size: 12px;
+    }
+    
+    .students-year-table tbody td {
+        padding: 8px;
+        border: 1px solid #f0f0f0;
+    }
+    
+    .students-year-table tbody tr:hover {
+        background: #fafafa;
+    }
+    
     @media (max-width: 768px) {
         .stat-card-icon {
             width: 40px;
@@ -496,6 +521,80 @@
                 <a href="<?php echo e(admin_url('mru-courses'), false); ?>" class="quick-link-btn">
                     <i class="fa fa-book"></i> Manage Courses
                 </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Students by Programme and Year of Study -->
+    <div class="row">
+        <div class="col-md-12">
+            <div class="info-box">
+                <h3><i class="fa fa-table"></i> Students by Programme & Year of Study</h3>
+                <div style="overflow-x: auto;">
+                    <table class="students-year-table">
+                        <thead>
+                            <tr>
+                                <th style="width: 40%; text-align: left;">Programme</th>
+                                <?php for($year = 1; $year <= $studentsByProgrammeYear['max_year']; $year++): ?>
+                                    <th style="width: <?php echo e(60 / $studentsByProgrammeYear['max_year'], false); ?>%; text-align: center;">Year <?php echo e($year, false); ?></th>
+                                <?php endfor; ?>
+                                <th style="width: 10%; text-align: center; background: <?php echo e($primaryColor, false); ?>; color: white;">Total</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php $grandTotal = 0; ?>
+                            <?php $__currentLoopData = $studentsByProgrammeYear['programmes']; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $programme): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
+                                <?php 
+                                    $progTotal = array_sum($programme['years']);
+                                    $grandTotal += $progTotal;
+                                ?>
+                                <tr>
+                                    <td style="font-weight: 600; font-size: 11px;">
+                                        <?php echo e($programme['abbrev'] ?? $programme['progid'], false); ?>
+
+                                    </td>
+                                    <?php for($year = 1; $year <= $studentsByProgrammeYear['max_year']; $year++): ?>
+                                        <td style="text-align: center; font-size: 13px; font-weight: 600; color: <?php echo e($programme['years'][$year] > 0 ? $primaryColor : '#ccc', false); ?>;">
+                                            <?php echo e($programme['years'][$year] > 0 ? number_format($programme['years'][$year]) : '-', false); ?>
+
+                                        </td>
+                                    <?php endfor; ?>
+                                    <td style="text-align: center; font-weight: 700; font-size: 14px; background: #f5f5f5; color: <?php echo e($primaryColor, false); ?>;">
+                                        <?php echo e(number_format($progTotal), false); ?>
+
+                                    </td>
+                                </tr>
+                            <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?>
+                            <?php if(empty($studentsByProgrammeYear['programmes'])): ?>
+                                <tr>
+                                    <td colspan="<?php echo e($studentsByProgrammeYear['max_year'] + 2, false); ?>" style="text-align: center; color: #999; padding: 20px;">
+                                        No student data found for the selected academic year
+                                    </td>
+                                </tr>
+                            <?php else: ?>
+                                <tr style="background: <?php echo e($primaryColor, false); ?>10; border-top: 2px solid <?php echo e($primaryColor, false); ?>;">
+                                    <td style="font-weight: 700; font-size: 12px; color: <?php echo e($primaryColor, false); ?>;">GRAND TOTAL</td>
+                                    <?php for($year = 1; $year <= $studentsByProgrammeYear['max_year']; $year++): ?>
+                                        <?php
+                                            $yearTotal = 0;
+                                            foreach($studentsByProgrammeYear['programmes'] as $prog) {
+                                                $yearTotal += $prog['years'][$year] ?? 0;
+                                            }
+                                        ?>
+                                        <td style="text-align: center; font-weight: 700; font-size: 14px; color: <?php echo e($primaryColor, false); ?>;">
+                                            <?php echo e(number_format($yearTotal), false); ?>
+
+                                        </td>
+                                    <?php endfor; ?>
+                                    <td style="text-align: center; font-weight: 700; font-size: 15px; background: <?php echo e($primaryColor, false); ?>; color: white;">
+                                        <?php echo e(number_format($grandTotal), false); ?>
+
+                                    </td>
+                                </tr>
+                            <?php endif; ?>
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
     </div>

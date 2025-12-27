@@ -112,6 +112,15 @@ class MruProgrammeController extends AdminController
                 return $this->is_placeholder ? 'Placeholder' : 'Active';
             });
 
+        // Curriculum PDF column
+        $grid->column('curriculum_pdf', __('Curriculum'))
+            ->display(function () {
+                $url = url('programme-curriculum/' . urlencode($this->progcode) . '/pdf');
+                return "<a href='{$url}' target='_blank' class='btn btn-xs btn-warning' title='View Curriculum PDF'>
+                    <i class='fa fa-file-pdf-o'></i> PDF
+                </a>";
+            });
+
         /*
         |--------------------------------------------------------------------------
         | Grid Filters

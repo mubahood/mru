@@ -12,6 +12,7 @@ use App\Http\Controllers\PrintController2;
 use App\Http\Controllers\ReportCardsPrintingController;
 use App\Http\Controllers\SitemapController;
 use App\Http\Controllers\StudentSemesterEnrollmentController;
+use App\Http\Controllers\ProgrammeCurriculumPdfController;
 use App\Models\AcademicClass;
 use App\Models\AcademicClassFee;
 use App\Models\Account;
@@ -4015,3 +4016,10 @@ Route::group(['prefix' => 'onboarding'], function () {
 Route::get('enterprises/create', function () {
   return redirect('onboarding/step1');
 });
+
+// Programme Curriculum PDF Routes
+Route::get('programme-curriculum/{identifier}/pdf', [ProgrammeCurriculumPdfController::class, 'generate'])
+    ->name('programme.curriculum.pdf');
+Route::get('programme-curriculum/{identifier}/download', [ProgrammeCurriculumPdfController::class, 'download'])
+    ->name('programme.curriculum.download');
+

@@ -66,6 +66,9 @@ class MruDashboardController extends Controller
         // Get programme enrollments
         $programmeEnrollments = $this->getProgrammeEnrollments($selectedYear, $selectedSemester);
 
+        // Get students by programme and year of study
+        $studentsByProgrammeYear = $this->getStudentsByProgrammeYear($selectedYear, $selectedSemester);
+
         // Get logged-in user's enterprise color
         $user = \Encore\Admin\Facades\Admin::user();
         $primaryColor = '#3c8dbc'; // Default
@@ -90,6 +93,7 @@ class MruDashboardController extends Controller
             'semesters' => $semesters,
             'stats' => $stats,
             'programmeEnrollments' => $programmeEnrollments,
+            'studentsByProgrammeYear' => $studentsByProgrammeYear,
             'primaryColor' => $primaryColor,
             'secondaryColor' => $secondaryColor,
         ]);
@@ -187,5 +191,82 @@ class MruDashboardController extends Controller
         return $query->groupBy('acr.prog_id', 'p.progname')
             ->orderByRaw('COUNT(DISTINCT acr.regno) DESC')
             ->get();
+    }
+
+    /**
+     * Get students grouped by programme and year of study
+     *
+     * @param string $academicYear
+     * @param string|null $semester
+     * @return array
+     */
+    protected function getStudentsByProgrammeYear($academicYear, $semester = null)
+    {
+        $query = \Illuminate\Support\Facades\DB::table('acad_results as r')
+            ->leftJoin('acad_programme as p', 'r.progid', '=', 'p.progcode')
+            ->select(
+                'r.progid',
+                'p.progname',
+                'p.abbrev',
+                'r.studyyear',
+                \Illuminate\Support\Facades\DB::raw('COUNT(DISTINCT r.regno) as student_count')
+            )
+            ->where('r.acad', $academicYear)
+            ->whereNotNull('r.studyyear')
+            ->where('r.studyyear', '>', 0);
+
+        // Apply semester filter if provided
+        if ($semester !== null && $semester !== '') {
+            $query->where('r.semester', $semester);
+        }
+
+        $results = $query->groupBy('r.progid', 'p.progname', 'p.abbrev', 'r.studyyear')
+            ->orderBy('p.progname')
+            ->orderBy('r.studyyear')
+            ->get();
+
+        // Transform results into a matrix structure
+        $matrix = [];
+        $programmes = [];
+        $maxYear = 0;
+
+        foreach ($results as $result) {
+            $progId = $result->progid;
+            $progName = $result->progname ?? $progId;
+            $abbrev = $result->abbrev ?? $progId;
+            $year = (int)$result->studyyear;
+            $count = $result->student_count;
+
+            if ($year > $maxYear) {
+                $maxYear = $year;
+            }
+
+            if (!isset($programmes[$progId])) {
+                $programmes[$progId] = [
+                    'progid' => $progId,
+                    'progname' => $progName,
+                    'abbrev' => $abbrev,
+                    'years' => []
+                ];
+            }
+
+            $programmes[$progId]['years'][$year] = $count;
+        }
+
+        // Ensure years 1-6 exist for all programmes
+        $maxYear = max($maxYear, 6);
+        foreach ($programmes as &$programme) {
+            for ($year = 1; $year <= $maxYear; $year++) {
+                if (!isset($programme['years'][$year])) {
+                    $programme['years'][$year] = 0;
+                }
+            }
+            ksort($programme['years']);
+        }
+
+        return [
+            'programmes' => array_values($programmes),
+            'max_year' => $maxYear
+        ];
     }
 }

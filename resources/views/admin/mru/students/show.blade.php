@@ -72,7 +72,10 @@
                             </div>
                         </div>
                         <div class="col-md-2 text-end">
-                            <a href="{{ admin_url('mru-students') }}" class="btn btn-sm btn-outline-secondary">
+                            <a href="{{ $transcriptUrl ?? '#' }}" target="_blank" class="btn btn-sm btn-danger mb-2" style="width: 100%;">
+                                <i class="fa fa-file-pdf-o"></i> Download Transcript
+                            </a>
+                            <a href="{{ admin_url('mru-students') }}" class="btn btn-sm btn-outline-secondary" style="width: 100%;">
                                 <i class="fa fa-arrow-left"></i> Back
                             </a>
                         </div>

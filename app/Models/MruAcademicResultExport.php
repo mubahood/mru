@@ -13,11 +13,12 @@ class MruAcademicResultExport extends Model
         'export_type',
         'academic_year',
         'semester',
+        'study_year',
         'programme_id',
-        'faculty_code',
-        'include_coursework',
-        'include_practical',
-        'include_summary',
+        'specialisation_id',
+        'minimum_passes_required',
+        'start_range',
+        'end_range',
         'sort_by',
         'excel_path',
         'pdf_path',
@@ -29,9 +30,6 @@ class MruAcademicResultExport extends Model
     ];
 
     protected $casts = [
-        'include_coursework' => 'boolean',
-        'include_practical' => 'boolean',
-        'include_summary' => 'boolean',
         'configuration' => 'array',
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
@@ -54,19 +52,19 @@ class MruAcademicResultExport extends Model
     }
 
     /**
-     * Get the faculty
-     */
-    public function faculty()
-    {
-        return $this->belongsTo(MruFaculty::class, 'faculty_code', 'faculty_code');
-    }
-
-    /**
      * Get the academic year relation
      */
     public function academicYearRelation()
     {
         return $this->belongsTo(MruAcademicYear::class, 'academic_year', 'acadyear');
+    }
+
+    /**
+     * Get the specialisation
+     */
+    public function specialisation()
+    {
+        return $this->hasOne(\stdClass::class); // Placeholder - using DB query in grid
     }
 
     /**

@@ -1,0 +1,347 @@
+<?php
+
+namespace App\Exports;
+
+use App\Models\MruResult;
+use App\Models\MruAcademicResultExport;
+use App\Models\MruProgrammeCourse;
+use App\Models\MruStudent;
+use App\Models\MruCurriculum;
+use App\Models\Enterprise;
+use App\Exports\MruAcademicResultSpecializationSheet;
+use Maatwebsite\Excel\Concerns\WithMultipleSheets;
+
+/**
+ * MRU Academic Result Matrix Export
+ * 
+ * Generates a matrix-style grade sheet with separate sheets per specialization:
+ * - Each sheet represents one specialization
+ * - X-axis (columns): Courses for that specialization
+ * - Y-axis (rows): Students in that specialization
+ * - Cells: Results (Grade/Score)
+ */
+class MruAcademicResultExcelExport implements WithMultipleSheets
+{
+    protected $export;
+    protected $specializationData = [];
+
+    public function __construct(MruAcademicResultExport $export)
+    {
+        $this->export = $export;
+        $this->loadData();
+    }
+
+    /**
+     * @return array
+     */
+    public function sheets(): array
+    {
+        $sheets = [];
+        
+        foreach ($this->specializationData as $spec => $data) {
+            $specName = $spec ?: 'No Specialization';
+            $sheets[] = new MruAcademicResultSpecializationSheet(
+                $specName,
+                $data['students'],
+                $data['courses'],
+                $data['results']
+            );
+        }
+        
+        return $sheets;
+    }
+        $this->loadData();
+    }
+
+    /**
+     * Load all necessary data for matrix export - grouped by specialization
+     */
+    protected function loadData()
+    {
+        // Get students who actually have results - limit for Excel
+        $studentRegnos = MruResult::where('progid', $this->export->programme_id)
+            ->where('acad', $this->export->academic_year)
+            ->where('semester', $this->export->semester)
+            ->distinct()
+            ->pluck('regno')
+            ->take(5);
+
+        // Get student details with specialization - select only needed columns
+        $this->students = MruStudent::select('ID', 'regno', 'firstname', 'othername', 'specialisation')
+            ->whereIn('regno', $studentRegnos)
+            ->orderBy('specialisation') // Group by specialization
+            ->orderBy($this->export->sort_by == 'student' ? 'firstname' : 'regno')
+            ->limit(5)
+            ->get();
+
+        // Get unique specializations from these students
+        $specializations = $this->students->pluck('specialisation')->unique()->filter();
+
+        // Get ALL unique course codes that any of these students have
+        $courseIds = MruResult::select('courseid')
+            ->where('progid', $this->export->programme_id)
+            ->where('acad', $this->export->academic_year)
+            ->where('semester', $this->export->semester)
+            ->whereIn('regno', $studentRegnos)
+            ->distinct()
+            ->pluck('courseid');
+
+        // Get course details from acad_course table directly
+        $this->courses = \DB::table('acad_course')
+            ->select('courseID', 'courseName')
+            ->whereIn('courseID', $courseIds)
+            ->orderBy('courseID')
+            ->get();
+
+        // Get student details - select only needed columns
+        $this->students = MruStudent::select('ID', 'regno', 'firstname', 'othername')
+            ->whereIn('regno', $studentRegnos)
+            ->orderBy($this->export->sort_by == 'student' ? 'firstname' : 'regno')
+            ->limit(5)
+            ->get();
+
+        // Get all results for these students - select only needed columns
+        $this->results = MruResult::select('regno', 'courseid', 'grade', 'score')
+            ->where('progid', $this->export->programme_id)
+            ->where('acad', $this->export->academic_year)
+            ->where('semester', $this->export->semester)
+            ->whereIn('regno', $studentRegnos)
+            ->get()
+            ->groupBy('regno')
+            ->map(function ($studentResults) {
+                return $studentResults->keyBy('courseid');
+            });
+    }
+
+    /**
+     * @return Collection
+     */
+    public function collection()
+    {
+        return $this->students;
+    }
+
+    /**
+     * Define start cell for data
+     */
+    public function startCell(): string
+    {
+        return 'A' . $this->headerRow;
+    }
+
+    /**
+     * @return array
+     */
+    public function headings(): array
+    {
+        $headings = ['Reg No', 'Student Name'];
+
+        // Add each course as a column header
+        foreach ($this->courses as $course) {
+            $headings[] = $course->courseID;
+        }
+
+        return $headings;
+    }
+
+    /**
+     * @param mixed $student
+     * @return array
+     */
+    public function map($student): array
+    {
+        $fullName = trim(($student->firstname ?? '') . ' ' . ($student->othername ?? ''));
+        $studentName = $fullName ?: $student->regno;
+
+        $row = [
+            $student->regno,
+            $studentName,
+        ];
+
+        // Get results for this student
+        $studentResults = $this->results->get($student->regno, collect());
+
+        // Add result for each course
+        foreach ($this->courses as $course) {
+            $result = $studentResults->get($course->courseID);
+            
+            if ($result) {
+                // Show Grade (Score) format
+                $cell = $result->grade ?? 'N/A';
+                if ($result->score) {
+                    $cell .= " ({$result->score})";
+                }
+                $row[] = $cell;
+            } else {
+                $row[] = '-';
+            }
+        }
+
+        return $row;
+    }
+
+    /**
+     * @param Worksheet $sheet
+     * @return array
+     */
+    public function styles(Worksheet $sheet)
+    {
+        // Header row style
+        $headerStyle = [
+            'font' => [
+                'bold' => true,
+                'size' => 10,
+                'color' => ['rgb' => 'FFFFFF'],
+            ],
+            'fill' => [
+                'fillType' => Fill::FILL_SOLID,
+                'startColor' => ['rgb' => '2E86AB'],
+            ],
+            'alignment' => [
+                'horizontal' => Alignment::HORIZONTAL_CENTER,
+                'vertical' => Alignment::VERTICAL_CENTER,
+            ],
+            'borders' => [
+                'allBorders' => [
+                    'borderStyle' => Border::BORDER_THIN,
+                    'color' => ['rgb' => '000000'],
+                ],
+            ],
+        ];
+
+        return [
+            $this->headerRow => $headerStyle,
+        ];
+    }
+
+    /**
+     * @return string
+     */
+    public function title(): string
+    {
+        return 'Results Matrix';
+    }
+
+    /**
+     * Register events
+     */
+    public function registerEvents(): array
+    {
+        return [
+            AfterSheet::class => function(AfterSheet $event) {
+                $sheet = $event->sheet->getDelegate();
+                
+                // Get dynamic enterprise data
+                $ent = Enterprise::first();
+                $institutionName = $ent ? strtoupper($ent->name) : 'MUTESA I ROYAL UNIVERSITY';
+                
+                // Add institution header
+                $totalCols = 2 + $this->courses->count();
+                $lastCol = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($totalCols);
+                
+                $sheet->setCellValue('A1', $institutionName);
+                $sheet->mergeCells("A1:{$lastCol}1");
+                $sheet->getStyle('A1')->applyFromArray([
+                    'font' => [
+                        'bold' => true,
+                        'size' => 16,
+                        'color' => ['rgb' => '2E86AB'],
+                    ],
+                    'alignment' => [
+                        'horizontal' => Alignment::HORIZONTAL_CENTER,
+                    ],
+                ]);
+
+                // Add export title
+                $sheet->setCellValue('A2', $this->export->export_name);
+                $sheet->mergeCells("A2:{$lastCol}2");
+                $sheet->getStyle('A2')->applyFromArray([
+                    'font' => [
+                        'bold' => true,
+                        'size' => 14,
+                    ],
+                    'alignment' => [
+                        'horizontal' => Alignment::HORIZONTAL_CENTER,
+                    ],
+                ]);
+
+                // Add export details
+                $row = 3;
+                $progName = $this->export->programme ? $this->export->programme->progname : $this->export->programme_id;
+                $sheet->setCellValue("A{$row}", "Programme: " . $progName);
+                $sheet->mergeCells("A{$row}:C{$row}");
+                
+                $row++;
+                $sheet->setCellValue("A{$row}", "Academic Year: " . $this->export->academic_year);
+                $sheet->mergeCells("A{$row}:C{$row}");
+                
+                $row++;
+                $sheet->setCellValue("A{$row}", "Semester: " . $this->export->semester);
+                $sheet->mergeCells("A{$row}:C{$row}");
+                
+                $row++;
+                $sheet->setCellValue("A{$row}", "Generated: " . now()->format('d M Y H:i'));
+                $sheet->mergeCells("A{$row}:C{$row}");
+
+                // Add course names row (above course codes)
+                $courseNameRow = $this->headerRow - 1;
+                $sheet->setCellValue("A{$courseNameRow}", 'Student Info');
+                $sheet->mergeCells("A{$courseNameRow}:B{$courseNameRow}");
+                $sheet->getStyle("A{$courseNameRow}:B{$courseNameRow}")->applyFromArray([
+                    'font' => ['bold' => true, 'size' => 10],
+                    'fill' => [
+                        'fillType' => Fill::FILL_SOLID,
+                        'startColor' => ['rgb' => 'E8F4F8'],
+                    ],
+                    'alignment' => [
+                        'horizontal' => Alignment::HORIZONTAL_CENTER,
+                    ],
+                ]);
+
+                $col = 3;
+                foreach ($this->courses as $programCourse) {
+                    if ($programCourse->course) {
+                        $colLetter = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($col);
+                        $courseName = $programCourse->course->courseName ?? '';
+                        $sheet->setCellValue("{$colLetter}{$courseNameRow}", $courseName);
+                        $sheet->getStyle("{$colLetter}{$courseNameRow}")->applyFromArray([
+                            'font' => ['bold' => true, 'size' => 9],
+                            'fill' => [
+                                'fillType' => Fill::FILL_SOLID,
+                                'startColor' => ['rgb' => 'E8F4F8'],
+                            ],
+                            'alignment' => [
+                                'horizontal' => Alignment::HORIZONTAL_CENTER,
+                                'wrapText' => true,
+                            ],
+                        ]);
+                        $sheet->getColumnDimension($colLetter)->setWidth(15);
+                    }
+                    $col++;
+                }
+
+                // Auto-size first two columns
+                $sheet->getColumnDimension('A')->setWidth(15);
+                $sheet->getColumnDimension('B')->setWidth(30);
+
+                // Add borders to data range
+                $lastRow = $this->headerRow + $this->students->count();
+                $sheet->getStyle("A{$this->headerRow}:{$lastCol}{$lastRow}")->applyFromArray([
+                    'borders' => [
+                        'allBorders' => [
+                            'borderStyle' => Border::BORDER_THIN,
+                            'color' => ['rgb' => '000000'],
+                        ],
+                    ],
+                ]);
+
+                // Center align all result cells
+                $sheet->getStyle("C{$this->headerRow}:{$lastCol}{$lastRow}")->applyFromArray([
+                    'alignment' => [
+                        'horizontal' => Alignment::HORIZONTAL_CENTER,
+                    ],
+                ]);
+            },
+        ];
+    }
+}

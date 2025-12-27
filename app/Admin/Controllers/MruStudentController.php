@@ -4,6 +4,7 @@ namespace App\Admin\Controllers;
 
 use App\Models\MruStudent;
 use App\Models\MruProgramme;
+use App\Services\StudentTranscriptPdfService;
 use Encore\Admin\Controllers\AdminController;
 use Encore\Admin\Form;
 use Encore\Admin\Grid;
@@ -149,6 +150,15 @@ class MruStudentController extends AdminController
                 $url = admin_url('mru-students/' . $this->ID);
                 return "<a href='{$url}' target='_blank' class='btn btn-sm btn-primary'>
                     <i class='fa fa-eye'></i> View Details
+                </a>";
+            });
+
+        // Print Transcript
+        $grid->column('print_transcript', __('Transcript'))
+            ->display(function () {
+                $transcriptUrl = admin_url('mru-students/' . $this->ID . '/transcript');
+                return "<a href='{$transcriptUrl}' target='_blank' class='btn btn-sm btn-danger'>
+                    <i class='fa fa-file-pdf-o'></i> Download
                 </a>";
             });
 
@@ -336,8 +346,11 @@ class MruStudentController extends AdminController
         // Get retakes and supplementary exams (failed courses)
         $retakes = $student->getRetakesAndSupplementary();
 
+        // Transcript URL for print button
+        $transcriptUrl = admin_url('mru-students/' . $id . '/transcript');
+
         // Return custom Blade view with all calculated data
-        return view('admin.mru.students.show', compact('student', 'semesterGpaSummary', 'retakes'));
+        return view('admin.mru.students.show', compact('student', 'semesterGpaSummary', 'retakes', 'transcriptUrl'));
     }
 
     /**
@@ -505,5 +518,26 @@ class MruStudentController extends AdminController
         });
 
         return $form;
+    }
+
+    /**
+     * Print academic transcript for a student
+     *
+     * @param int $id Student ID
+     * @return \Illuminate\Http\Response
+     */
+    public function printTranscript($id)
+    {
+        try {
+            $student = MruStudent::findOrFail($id);
+            $transcriptService = new StudentTranscriptPdfService($id);
+            $pdf = $transcriptService->generate();
+            
+            $filename = 'Transcript_' . $student->regno . '_' . date('Ymd') . '.pdf';
+            return $pdf->stream($filename);
+        } catch (\Exception $e) {
+            admin_error('Error', 'Failed to generate transcript: ' . $e->getMessage());
+            return back();
+        }
     }
 }

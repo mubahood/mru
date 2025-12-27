@@ -1,0 +1,325 @@
+<?php
+
+namespace App\Services;
+
+use App\Models\MruResult;
+use App\Models\MruAcademicResultExport;
+use App\Models\MruProgrammeCourse;
+use App\Models\MruStudent;
+use App\Models\MruCurriculum;
+use App\Models\Enterprise;
+use Barryvdh\DomPDF\Facade\Pdf;
+use Illuminate\Support\Collection;
+
+/**
+ * MRU Academic Result Matrix PDF Service
+ * 
+ * Generates a matrix-style grade sheet PDF:
+ * - X-axis (columns): Courses from curriculum
+ * - Y-axis (rows): Students enrolled in programme
+ * - Cells: Results (Grade/Score)
+ */
+class MruAcademicResultPdfService
+{
+    protected $export;
+    protected $students;
+    protected $courses;
+    protected $results;
+
+    public function __construct(MruAcademicResultExport $export)
+    {
+        $this->export = $export;
+        $this->loadData();
+    }
+
+    /**
+     * Generate PDF and return the PDF instance
+     */
+    public function generate()
+    {
+        // Increase memory and time limits for large exports
+        ini_set('memory_limit', '512M');
+        ini_set('max_execution_time', '300');
+        
+        $html = $this->generateHtml();
+        
+        $pdf = Pdf::loadHTML($html);
+        $pdf->setPaper('A4', 'landscape');
+        $pdf->setOptions([
+            'isHtml5ParserEnabled' => true,
+            'isRemoteEnabled' => true,
+            'defaultFont' => 'sans-serif',
+            'dpi' => 96,
+            'enable_php' => false,
+            'enable_javascript' => false,
+        ]);
+
+        return $pdf;
+    }
+
+    /**
+     * Load all necessary data grouped by specialization
+     */
+    protected function loadData()
+    {
+        // Get students who actually have results - limit for testing
+        $studentRegnos = MruResult::where('progid', $this->export->programme_id)
+            ->where('acad', $this->export->academic_year)
+            ->where('semester', $this->export->semester)
+            ->distinct()
+            ->pluck('regno')
+            ->take(5);
+
+        // Get all student details with specialization
+        $allStudents = MruStudent::select('ID', 'regno', 'firstname', 'othername', 'specialisation')
+            ->whereIn('regno', $studentRegnos)
+            ->orderBy($this->export->sort_by == 'student' ? 'firstname' : 'regno')
+            ->limit(5)
+            ->get();
+
+        // Group students by specialization
+        $this->studentsBySpecialization = $allStudents->groupBy('specialisation');
+
+        // For each specialization, get only courses that specialization has
+        $this->specializationData = [];
+        
+        foreach ($this->studentsBySpecialization as $spec => $students) {
+            $specRegnos = $students->pluck('regno');
+            
+            // Get courses only for this specialization's students
+            $courseIds = MruResult::select('courseid')
+                ->where('progid', $this->export->programme_id)
+                ->where('acad', $this->export->academic_year)
+                ->where('semester', $this->export->semester)
+                ->whereIn('regno', $specRegnos)
+                ->distinct()
+                ->pluck('courseid');
+
+            $courses = \DB::table('acad_course')
+                ->select('courseID', 'courseName')
+                ->whereIn('courseID', $courseIds)
+                ->orderBy('courseID')
+                ->get();
+
+            // Get results for these students
+            $results = MruResult::select('regno', 'courseid', 'grade', 'score')
+                ->where('progid', $this->export->programme_id)
+                ->where('acad', $this->export->academic_year)
+                ->where('semester', $this->export->semester)
+                ->whereIn('regno', $specRegnos)
+                ->get()
+                ->groupBy('regno')
+                ->map(function ($studentResults) {
+                    return $studentResults->keyBy('courseid');
+                });
+
+            $this->specializationData[$spec] = [
+                'students' => $students,
+                'courses' => $courses,
+                'results' => $results,
+            ];
+        }
+
+        // Get all results for this programme, year, semester - select only needed columns
+        $this->results = MruResult::select('regno', 'courseid', 'grade', 'score')
+            ->where('progid', $this->export->programme_id)
+            ->where('acad', $this->export->academic_year)
+            ->where('semester', $this->export->semester)
+            ->whereIn('regno', $studentRegnos)
+            ->get()
+            ->groupBy('regno')
+            ->map(function ($studentResults) {
+                return $studentResults->keyBy('courseid');
+            });
+    }
+
+    /**
+     * Get the results count
+     */
+    public function getResultsCount()
+    {
+        return $this->students->count();
+    }
+
+    /**
+     * Generate HTML for matrix-style PDF
+     */
+    protected function generateHtml()
+    {
+        // Get dynamic enterprise data
+        $ent = Enterprise::first();
+        $institutionName = $ent ? strtoupper($ent->name) : 'MUTESA I ROYAL UNIVERSITY';
+        
+        // Programme name
+        $progName = $this->export->programme ? $this->export->programme->progname : $this->export->programme_id;
+        
+        $html = '
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="UTF-8">
+            <title>' . e($this->export->export_name) . '</title>
+            <style>
+                @page {
+                    size: A4 landscape;
+                    margin: 10mm 8mm;
+                }
+                body {
+                    font-family: "DejaVu Sans", Arial, sans-serif;
+                    font-size: 7pt;
+                    line-height: 1.1;
+                    margin: 0;
+                    padding: 0;
+                }
+                .header {
+                    text-align: center;
+                    margin-bottom: 8px;
+                    border-bottom: 2px solid #2E86AB;
+                    padding-bottom: 6px;
+                }
+                .header h1 {
+                    color: #2E86AB;
+                    font-size: 12pt;
+                    margin: 0 0 2px 0;
+                    line-height: 1.1;
+                }
+                .header h2 {
+                    font-size: 9pt;
+                    margin: 2px 0 0 0;
+                    line-height: 1.1;
+                }
+                .info-section {
+                    margin-bottom: 6px;
+                    font-size: 7pt;
+                    padding: 3px 5px;
+                    background-color: #f8f9fa;
+                    border: 1px solid #dee2e6;
+                }
+                .info-section p {
+                    margin: 1px 0;
+                    display: inline-block;
+                    margin-right: 15px;
+                }
+                table.results-matrix {
+                    width: 100%;
+                    border-collapse: collapse;
+                    font-size: 6pt;
+                }
+                table.results-matrix th {
+                    background-color: #2E86AB;
+                    color: white;
+                    padding: 3px 2px;
+                    text-align: center;
+                    font-weight: bold;
+                    border: 1px solid #000;
+                    font-size: 6pt;
+                }
+                table.results-matrix th.student-info {
+                    background-color: #1a5a7a;
+                }
+                table.results-matrix td {
+                    padding: 2px 2px;
+                    border: 1px solid #ddd;
+                    text-align: center;
+                    font-size: 6pt;
+                }
+                table.results-matrix td.student-cell {
+                    text-align: left;
+                    padding-left: 4px;
+                }
+                table.results-matrix tr:nth-child(even) {
+                    background-color: #f9f9f9;
+                }
+                .course-header {
+                    writing-mode: vertical-rl;
+                    transform: rotate(180deg);
+                    white-space: nowrap;
+                    max-width: 20px;
+                }
+                .footer {
+                    margin-top: 6px;
+                    font-size: 6pt;
+                    text-align: center;
+                    color: #666;
+                    border-top: 1px solid #dee2e6;
+                    padding-top: 4px;
+                }
+            </style>
+        </head>
+        <body>
+            <div class="header">
+                <h1>' . e($institutionName) . '</h1>
+                <h2>' . e($this->export->export_name) . '</h2>
+            </div>
+            
+            <div class="info-section">
+                <p><strong>Programme:</strong> ' . e($progName) . '</p>
+                <p><strong>Academic Year:</strong> ' . e($this->export->academic_year) . '</p>
+                <p><strong>Semester:</strong> ' . e($this->export->semester) . '</p>
+                <p><strong>Generated:</strong> ' . now()->format('d M Y H:i') . '</p>
+            </div>
+            
+            <table class="results-matrix">
+                <thead>
+                    <tr>
+                        <th class="student-info" rowspan="2">REG NO</th>
+                        <th class="student-info" rowspan="2">STUDENT NAME</th>';
+        
+        // Course code headers
+        foreach ($this->courses as $course) {
+            $html .= '<th>' . e($course->courseID) . '</th>';
+        }
+        
+        $html .= '</tr>
+                    <tr>';
+        
+        // Course name headers (rotated)
+        foreach ($this->courses as $course) {
+            $courseName = $course->courseName ?? '';
+            $html .= '<th><div class="course-header">' . e($courseName) . '</div></th>';
+        }
+        
+        $html .= '</tr>
+                </thead>
+                <tbody>';
+        
+        // Student rows
+        foreach ($this->students as $student) {
+            $fullName = trim(($student->firstname ?? '') . ' ' . ($student->othername ?? ''));
+            $studentName = $fullName ?: $student->regno;
+            
+            // Get results for this student
+            $studentResults = $this->results->get($student->regno, collect());
+            
+            $html .= '<tr>
+                        <td class="student-cell">' . e($student->regno) . '</td>
+                        <td class="student-cell">' . e($studentName) . '</td>';
+            
+            // Add result for each course
+            foreach ($this->courses as $course) {
+                $result = $studentResults->get($course->courseID);
+                
+                if ($result) {
+                    $grade = $result->grade ?? 'N/A';
+                    $score = $result->score ? "({$result->score})" : '';
+                    $html .= '<td>' . e($grade) . ' ' . e($score) . '</td>';
+                } else {
+                    $html .= '<td>-</td>';
+                }
+            }
+            
+            $html .= '</tr>';
+        }
+        
+        $html .= '</tbody>
+            </table>
+            
+            <div class="footer">
+                <p>Generated by MRU Academic Management System | ' . now()->format('d M Y H:i:s') . '</p>
+            </div>
+        </body>
+        </html>';
+
+        return $html;
+    }
+}

@@ -4,24 +4,31 @@ namespace App\Services;
 
 use App\Models\MruResult;
 use App\Models\MruAcademicResultExport;
+use App\Models\MruStudent;
+use App\Models\Enterprise;
 use Barryvdh\DomPDF\Facade\Pdf;
-use Illuminate\Support\Collection;
 
+/**
+ * MRU Academic Result PDF Export Service
+ * Generates matrix-style grade sheets separated by specialization
+ */
 class MruAcademicResultPdfService
 {
     protected $export;
-    protected $results;
-    protected $summary;
+    protected $studentsBySpecialization;
+    protected $specializationData = [];
 
     public function __construct(MruAcademicResultExport $export)
     {
+        ini_set('memory_limit', '512M');
+        ini_set('max_execution_time', '300');
+        
         $this->export = $export;
-        $this->loadResults();
-        $this->calculateSummary();
+        $this->loadData();
     }
 
     /**
-     * Generate PDF and return the PDF instance
+     * Generate and save PDF
      */
     public function generate()
     {
@@ -33,84 +40,101 @@ class MruAcademicResultPdfService
             'isHtml5ParserEnabled' => true,
             'isRemoteEnabled' => true,
             'defaultFont' => 'sans-serif',
+            'dpi' => 96,
+            'enable_php' => false,
+            'enable_javascript' => false,
         ]);
 
         return $pdf;
     }
 
     /**
-     * Load results based on export configuration
+     * Load all necessary data grouped by specialization
      */
-    protected function loadResults()
+    protected function loadData()
     {
-        $query = MruResult::query()
-            ->select('acad_results.*')
-            ->with(['course']);
-
-        // Apply filters
-        if ($this->export->academic_year) {
-            $query->where('acad_results.acad', $this->export->academic_year);
+        // Build base query for students with results
+        $studentQuery = MruResult::where('progid', $this->export->programme_id)
+            ->where('acad', $this->export->academic_year)
+            ->where('semester', $this->export->semester);
+        
+        // Apply specialisation filter if specified
+        if ($this->export->specialisation_id) {
+            // Get students with this specialisation who have results
+            $specStudentRegnos = MruStudent::where('specialisation', $this->export->specialisation_id)
+                ->pluck('regno');
+            
+            $studentQuery->whereIn('regno', $specStudentRegnos);
         }
+        
+        $studentRegnos = $studentQuery->distinct()
+            ->pluck('regno');
 
-        if ($this->export->semester) {
-            $query->where('acad_results.semester', $this->export->semester);
+        // Get all student details with specialization, ordered
+        $allStudents = MruStudent::select('ID', 'regno', 'firstname', 'othername', 'specialisation')
+            ->whereIn('regno', $studentRegnos)
+            ->orderBy($this->export->sort_by == 'student' ? 'firstname' : 'regno');
+        
+        // Apply range limit
+        $start = max(1, $this->export->start_range ?? 1);
+        $end = max($start, $this->export->end_range ?? 100);
+        $limit = $end - $start + 1;
+        
+        $allStudents = $allStudents->skip($start - 1)
+            ->take($limit)
+            ->get();
+
+        // Group students by specialization
+        $this->studentsBySpecialization = $allStudents->groupBy('specialisation');
+
+        // For each specialization, get only courses that specialization has
+        foreach ($this->studentsBySpecialization as $spec => $students) {
+            $specRegnos = $students->pluck('regno');
+            
+            // Get specialization name
+            $specInfo = \DB::table('acad_specialisation')
+                ->select('spec', 'abbrev')
+                ->where('spec_id', $spec)
+                ->first();
+            
+            $specName = $specInfo ? $specInfo->spec : 'Specialization ' . $spec;
+            
+            // Get courses only for this specialization's students
+            $courseIds = MruResult::select('courseid')
+                ->where('progid', $this->export->programme_id)
+                ->where('acad', $this->export->academic_year)
+                ->where('semester', $this->export->semester)
+                ->where('studyyear', $this->export->study_year)
+                ->whereIn('regno', $specRegnos)
+                ->distinct()
+                ->pluck('courseid');
+
+            $courses = \DB::table('acad_course')
+                ->select('courseID', 'courseName')
+                ->whereIn('courseID', $courseIds)
+                ->orderBy('courseID')
+                ->get();
+
+            // Get results for these students
+            $results = MruResult::select('regno', 'courseid', 'grade', 'score')
+                ->where('progid', $this->export->programme_id)
+                ->where('acad', $this->export->academic_year)
+                ->where('semester', $this->export->semester)
+                ->where('studyyear', $this->export->study_year)
+                ->whereIn('regno', $specRegnos)
+                ->get()
+                ->groupBy('regno')
+                ->map(function ($studentResults) {
+                    return $studentResults->keyBy('courseid');
+                });
+
+            $this->specializationData[$spec] = [
+                'name' => $specName,
+                'students' => $students,
+                'courses' => $courses,
+                'results' => $results,
+            ];
         }
-
-        if ($this->export->programme_id) {
-            $query->where('acad_results.progid', $this->export->programme_id);
-        }
-
-        if ($this->export->faculty_code) {
-            $query->join('acad_programme', 'acad_results.progid', '=', 'acad_programme.progcode')
-                  ->where('acad_programme.faculty_code', $this->export->faculty_code);
-        }
-
-        // Apply sorting
-        switch ($this->export->sort_by) {
-            case 'student':
-                $query->orderBy('acad_results.regno');
-                break;
-            case 'course':
-                $query->orderBy('acad_results.courseid');
-                break;
-            case 'grade':
-                $query->orderBy('acad_results.grade');
-                break;
-            case 'programme':
-                $query->orderBy('acad_results.progid');
-                break;
-        }
-
-        // Limit to 2000 records for PDF performance
-        $this->results = $query->limit(2000)->get();
-    }
-
-    /**
-     * Calculate summary statistics
-     */
-    protected function calculateSummary()
-    {
-        $this->summary = [
-            'total_students' => $this->results->pluck('regno')->unique()->count(),
-            'total_records' => $this->results->count(),
-            'total_courses' => $this->results->pluck('courseID')->unique()->count(),
-            'average_mark' => round($this->results->avg('mark'), 2),
-            'average_gpa' => round($this->results->avg('gpa'), 2),
-            'grade_distribution' => $this->results->groupBy('grade')->map->count()->toArray(),
-            'pass_rate' => $this->calculatePassRate(),
-        ];
-    }
-
-    /**
-     * Calculate pass rate
-     */
-    protected function calculatePassRate()
-    {
-        $total = $this->results->count();
-        if ($total == 0) return 0;
-
-        $passed = $this->results->whereIn('grade', ['A+', 'A', 'B+', 'B', 'C+', 'C', 'D+', 'D'])->count();
-        return round(($passed / $total) * 100, 2);
     }
 
     /**
@@ -118,23 +142,34 @@ class MruAcademicResultPdfService
      */
     public function getResultsCount()
     {
-        return $this->results->count();
+        return collect($this->specializationData)->sum(fn($data) => $data['students']->count());
     }
 
     /**
-     * Generate HTML for PDF
+     * Generate HTML for matrix-style PDF with separate tables per specialization
      */
     protected function generateHtml()
-    {        // Get company name from database
-        $companyName = 'MUTEESA I ROYAL UNIVERSITY';
-        try {
-            $company = \DB::table('companyinfo')->first();
-            if ($company && !empty($company->companyname)) {
-                $companyName = $company->companyname;
-            }
-        } catch (\Exception $e) {
-            // Fallback to default if query fails
+    {
+        // Get dynamic enterprise data
+        $ent = Enterprise::first();
+        $institutionName = $ent ? strtoupper($ent->name) : 'MUTESA I ROYAL UNIVERSITY';
+        $logoPath = $ent && $ent->logo ? public_path('storage/' . $ent->logo) : null;
+        
+        // Convert logo to base64 data URI (more reliable for DomPDF)
+        $logoDataUri = null;
+        if ($logoPath && file_exists($logoPath)) {
+            $imageType = mime_content_type($logoPath);
+            $imageData = base64_encode(file_get_contents($logoPath));
+            $logoDataUri = "data:{$imageType};base64,{$imageData}";
         }
+        
+        $address = $ent ? $ent->address : '';
+        $phone = $ent ? $ent->phone : '';
+        $email = $ent ? $ent->email : '';
+        
+        // Programme name
+        $progName = $this->export->programme ? $this->export->programme->progname : $this->export->programme_id;
+        
         $html = '
         <!DOCTYPE html>
         <html>
@@ -142,241 +177,385 @@ class MruAcademicResultPdfService
             <meta charset="UTF-8">
             <title>' . e($this->export->export_name) . '</title>
             <style>
+                @page {
+                    size: A4 landscape;
+                    margin: 8mm 6mm;
+                }
                 body {
-                    font-family: Arial, sans-serif;
-                    font-size: 9px;
-                    margin: 10px;
+                    font-family: "DejaVu Sans", Arial, sans-serif;
+                    font-size: 7pt;
+                    line-height: 1;
+                    margin: 0;
+                    padding: 0;
                 }
                 .header {
+                    margin-bottom: 5px;
+                    padding-bottom: 3px;
+                    border-bottom: 2px solid #333;
+                }
+                .header-table {
+                    width: 100%;
+                    margin-bottom: 0;
+                }
+                .header-table td {
+                    vertical-align: top;
+                    padding: 0;
+                }
+                .header-logo-cell {
+                    width: 50px;
+                    text-align: left;
+                }
+                .header-logo {
+                    max-width: 45px;
+                    max-height: 45px;
+                    height: auto;
+                }
+                .header-center {
                     text-align: center;
-                    margin-bottom: 15px;
+                    padding: 0 5px;
+                }
+                .header-spacer {
+                    width: 50px;
                 }
                 .header h1 {
-                    color: #2E86AB;
-                    font-size: 16px;
-                    margin: 5px 0;
+                    color: #1a5490;
+                    font-size: 11pt;
+                    margin: 0 0 1px 0;
+                    line-height: 1;
+                    font-weight: bold;
+                }
+                .header .enterprise-info {
+                    font-size: 5pt;
+                    color: #666;
+                    margin: 1px 0 2px 0;
                 }
                 .header h2 {
-                    font-size: 13px;
-                    margin: 5px 0;
+                    font-size: 8pt;
+                    margin: 2px 0 0 0;
+                    line-height: 1;
+                    font-weight: bold;
+                    text-decoration: underline;
                 }
                 .info-section {
-                    margin-bottom: 10px;
-                    font-size: 10px;
+                    margin-bottom: 4px;
+                    font-size: 6pt;
+                    padding: 2px 3px;
+                    background-color: #f5f5f5;
+                    border: 1px solid #ddd;
                 }
                 .info-section p {
-                    margin: 3px 0;
+                    margin: 0;
+                    display: inline-block;
+                    margin-right: 10px;
                 }
-                table {
-                    width: 100%;
-                    border-collapse: collapse;
-                    margin-bottom: 15px;
-                    font-size: 8px;
-                }
-                table th {
-                    background-color: #2E86AB;
-                    color: white;
-                    padding: 6px 4px;
-                    text-align: left;
-                    font-weight: bold;
-                    border: 1px solid #000;
-                }
-                table td {
-                    padding: 5px 4px;
-                    border: 1px solid #ddd;
-                }
-                table tr:nth-child(even) {
-                    background-color: #f9f9f9;
-                }
-                .summary {
-                    margin-top: 15px;
+                .specialization-section {
+                    margin-bottom: 10px;
                     page-break-inside: avoid;
                 }
-                .summary h3 {
-                    background-color: #2E86AB;
+                .spec-title {
+                    background-color: #1a5490;
                     color: white;
-                    padding: 6px;
-                    margin: 10px 0 5px 0;
-                    font-size: 11px;
-                }
-                .summary-grid {
-                    display: table;
-                    width: 100%;
-                    margin-bottom: 10px;
-                }
-                .summary-row {
-                    display: table-row;
-                }
-                .summary-label {
-                    display: table-cell;
+                    padding: 2px 5px;
+                    font-size: 7pt;
                     font-weight: bold;
-                    padding: 4px;
-                    width: 40%;
-                    border: 1px solid #ddd;
-                    background-color: #f5f5f5;
+                    margin-bottom: 2px;
                 }
-                .summary-value {
-                    display: table-cell;
-                    padding: 4px;
-                    border: 1px solid #ddd;
+                table.results-matrix {
+                    width: 100%;
+                    border-collapse: collapse;
+                    margin-bottom: 5px;
+                    table-layout: auto;
                 }
-                .grade-dist {
-                    display: table;
-                    width: 50%;
-                    margin-top: 10px;
+                table.results-matrix th {
+                    background-color: #e8e8e8;
+                    color: #333;
+                    padding: 1px 2px;
+                    border: 1px solid #ccc;
+                    font-weight: bold;
+                    font-size: 6pt;
+                    vertical-align: top;
+                }
+                table.results-matrix th.student-info {
+                    background-color: #d0d0d0;
+                    font-size: 5pt;
+                }
+                table.results-matrix th.regno-col {
+                    min-width: 35px;
+                    max-width: 45px;
+                    width: 40px;
+                }
+                table.results-matrix th.name-col {
+                    min-width: 50px;
+                    max-width: 80px;
+                    width: 65px;
+                }
+                table.results-matrix th.status-col {
+                    min-width: 35px;
+                    max-width: 45px;
+                    width: 40px;
+                }
+                table.results-matrix th.course-header {
+                    background-color: #e8e8e8;
+                    min-width: 25px;
+                    max-width: 35px;
+                    width: 30px;
+                    font-size: 4pt;
+                    line-height: 1.1;
+                    word-wrap: break-word;
+                    overflow-wrap: break-word;
+                    hyphens: auto;
+                    padding: 1px;
+                }
+                table.results-matrix td {
+                    padding: 1px;
+                    border: 1px solid #ddd;
+                    text-align: center;
+                    font-size: 6pt;
+                    max-width: 35px;
+                    overflow: hidden;
+                }
+                table.results-matrix td.student-cell {
+                    text-align: left;
+                    padding: 1px 2px;
+                    font-size: 5pt;
+                    max-width: 80px;
+                    overflow: hidden;
+                    text-overflow: ellipsis;
+                    white-space: nowrap;
+                }
+                table.results-matrix td.status-cell {
+                    text-align: center;
+                    padding: 1px;
+                    font-size: 5pt;
+                    font-weight: bold;
+                }
+                table.results-matrix td.status-pass {
+                    background-color: #d4edda;
+                    color: #155724;
+                }
+                table.results-matrix td.status-fail {
+                    background-color: #f8d7da;
+                    color: #721c24;
+                }
+                table.results-matrix td.status-incomplete {
+                    background-color: #fff3cd;
+                    color: #856404;
+                }
+                table.results-matrix tr:nth-child(even) {
+                    background-color: #fafafa;
                 }
                 .footer {
-                    margin-top: 15px;
-                    font-size: 8px;
+                    margin-top: 4px;
+                    font-size: 5pt;
                     text-align: center;
                     color: #666;
-                }
-                .status-pass {
-                    color: green;
-                    font-weight: bold;
-                }
-                .status-fail {
-                    color: red;
-                    font-weight: bold;
+                    border-top: 1px solid #ddd;
+                    padding-top: 2px;
                 }
             </style>
         </head>
         <body>
             <div class="header">
-                <h1>' . e($companyName) . '</h1>
-                <h2>' . e($this->export->export_name) . '</h2>
-            </div>
-            
-            <div class="info-section">';
-
-        if ($this->export->academic_year) {
-            $html .= '<p><strong>Academic Year:</strong> ' . e($this->export->academic_year) . '</p>';
-        }
-        if ($this->export->semester) {
-            $html .= '<p><strong>Semester:</strong> ' . e($this->export->semester) . '</p>';
-        }
-        if ($this->export->programme_id) {
-            $progName = $this->export->programme ? $this->export->programme->progname : $this->export->programme_id;
-            $html .= '<p><strong>Programme:</strong> ' . e($progName) . '</p>';
-        }
-        if ($this->export->faculty_code) {
-            $facultyName = $this->export->faculty ? $this->export->faculty->faculty_name : $this->export->faculty_code;
-            $html .= '<p><strong>Faculty:</strong> ' . e($facultyName) . '</p>';
-        }
-        $html .= '<p><strong>Generated:</strong> ' . now()->format('d M Y H:i') . '</p>';
-        $html .= '</div>';
-
-        // Data table
-        $html .= '<table>
-            <thead>
-                <tr>
-                    <th>Reg No</th>
-                    <th>Student Name</th>
-                    <th>Programme</th>
-                    <th>Course Code</th>
-                    <th>Course Name</th>
-                    <th>Year</th>
-                    <th>Sem</th>
-                    <th>Mark</th>
-                    <th>Grade</th>
-                    <th>GPA</th>
-                    <th>CU</th>';
+                <table class="header-table">
+                    <tbody>
+                        <tr>
+                            <td class="header-logo-cell">';
         
-        if ($this->export->include_coursework) {
-            $html .= '<th>CW</th>';
-        }
-        if ($this->export->include_practical) {
-            $html .= '<th>Prac</th>';
+        if ($logoDataUri) {
+            $html .= '<img src="' . $logoDataUri . '" class="header-logo" alt="Logo" />';
         }
         
-        $html .= '<th>Status</th>
-                </tr>
-            </thead>
-            <tbody>';
-
-        foreach ($this->results as $result) {
-            $studentName = e($result->regno);
-            $progName = e($result->progid ?? 'N/A');
-            $courseName = $result->course ? e($result->course->courseName) : 'N/A';
-            
-            $status = $result->grade && in_array($result->grade, ['A+', 'A', 'B+', 'B', 'C+', 'C', 'D+', 'D']) 
-                ? '<span class="status-pass">PASS</span>' 
-                : '<span class="status-fail">FAIL</span>';
-
-            $html .= '<tr>
-                <td>' . e($result->regno) . '</td>
-                <td>' . $studentName . '</td>
-                <td>' . $progName . '</td>
-                <td>' . e($result->courseid) . '</td>
-                <td>' . $courseName . '</td>
-                <td>' . e($result->acad) . '</td>
-                <td>' . e($result->semester) . '</td>
-                <td>' . e($result->score ?? 'N/A') . '</td>
-                <td>' . e($result->grade ?? 'N/A') . '</td>
-                <td>' . e($result->gpa ?? 'N/A') . '</td>
-                <td>' . e($result->CreditUnits ?? 'N/A') . '</td>';
-
-            if ($this->export->include_coursework) {
-                $html .= '<td>N/A</td>';
-            }
-
-            if ($this->export->include_practical) {
-                $html .= '<td>N/A</td>';
-            }
-
-            $html .= '<td>' . $status . '</td>
-            </tr>';
-        }
-
-        $html .= '</tbody></table>';
-
-        // Summary section
-        if ($this->export->include_summary) {
-            $html .= '<div class="summary">
-                <h3>SUMMARY STATISTICS</h3>
-                <div class="summary-grid">
-                    <div class="summary-row">
-                        <div class="summary-label">Total Students:</div>
-                        <div class="summary-value">' . $this->summary['total_students'] . '</div>
-                    </div>
-                    <div class="summary-row">
-                        <div class="summary-label">Total Records:</div>
-                        <div class="summary-value">' . $this->summary['total_records'] . '</div>
-                    </div>
-                    <div class="summary-row">
-                        <div class="summary-label">Total Courses:</div>
-                        <div class="summary-value">' . $this->summary['total_courses'] . '</div>
-                    </div>
-                    <div class="summary-row">
-                        <div class="summary-label">Average Mark:</div>
-                        <div class="summary-value">' . $this->summary['average_mark'] . '</div>
-                    </div>
-                    <div class="summary-row">
-                        <div class="summary-label">Average GPA:</div>
-                        <div class="summary-value">' . $this->summary['average_gpa'] . '</div>
-                    </div>
-                    <div class="summary-row">
-                        <div class="summary-label">Pass Rate:</div>
-                        <div class="summary-value">' . $this->summary['pass_rate'] . '%</div>
-                    </div>
-                </div>';
-
-            if (!empty($this->summary['grade_distribution'])) {
-                $html .= '<h3 style="margin-top: 10px;">GRADE DISTRIBUTION</h3>
-                    <div class="grade-dist">';
-                foreach ($this->summary['grade_distribution'] as $grade => $count) {
-                    $html .= '<div class="summary-row">
-                        <div class="summary-label">Grade ' . e($grade) . ':</div>
-                        <div class="summary-value">' . $count . '</div>
-                    </div>';
-                }
-                $html .= '</div>';
-            }
-
+        $html .= '</td>
+                            <td class="header-center">
+                                <h1>' . e($institutionName) . '</h1>';
+        
+        if ($address || $phone || $email) {
+            $html .= '<div class="enterprise-info">';
+            $enterpriseInfo = [];
+            if ($address) $enterpriseInfo[] = $address;
+            if ($phone) $enterpriseInfo[] = 'Tel: ' . $phone;
+            if ($email) $enterpriseInfo[] = 'Email: ' . $email;
+            $html .= implode(' | ', array_map('e', $enterpriseInfo));
             $html .= '</div>';
         }
-
-        $html .= '<div class="footer">
+        
+        $html .= '<h2>' . e($this->export->export_name) . '</h2>
+                            </td>
+                            <td class="header-spacer"></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            
+            <div class="info-section">
+                <p><strong>Programme:</strong> ' . e($progName) . '</p>
+                <p><strong>Academic Year:</strong> ' . e($this->export->academic_year) . '</p>
+                <p><strong>Semester:</strong> ' . e($this->export->semester) . '</p>
+                <p><strong>Year of Study:</strong> Year ' . e($this->export->study_year) . '</p>';
+        
+        if (($this->export->minimum_passes_required ?? 0) > 0) {
+            $html .= '<p><strong>Minimum Passes:</strong> ' . e($this->export->minimum_passes_required) . ' subjects</p>';
+        }
+        
+        $html .= '<p><strong>Generated:</strong> ' . now()->format('d M Y H:i') . '</p>
+            </div>';
+            
+        // Generate a separate table for each specialization
+        foreach ($this->specializationData as $spec => $data) {
+            $specName = $data['name'];
+            $students = $data['students'];
+            $courses = $data['courses'];
+            $results = $data['results'];
+            
+            $html .= '
+            <div class="specialization-section">
+                <div class="spec-title">' . e($specName) . ' (' . $students->count() . ' Students)</div>
+                
+                <table class="results-matrix">
+                    <thead>
+                        <tr>
+                            <th class="student-info regno-col" rowspan="2">REG NO</th>
+                            <th class="student-info name-col" rowspan="2">NAME</th>
+                            <th class="student-info status-col" rowspan="2">STATUS</th>';
+            
+            // Course code headers for this specialization
+            foreach ($courses as $course) {
+                $html .= '<th class="course-header">' . e($course->courseID) . '</th>';
+            }
+            
+            $html .= '</tr>
+                        <tr>';
+            
+            // Course name headers (flexible word wrap) for this specialization
+            foreach ($courses as $course) {
+                $courseName = $course->courseName ?? '';
+                $html .= '<th class="course-header">' . e($courseName) . '</th>';
+            }
+            
+            $html .= '</tr>';
+            
+            $html .= '
+                    </thead>
+                    <tbody>';;
+            
+            // Student rows for this specialization
+            foreach ($students as $student) {
+                $fullName = trim(($student->firstname ?? '') . ' ' . ($student->othername ?? ''));
+                $studentName = $fullName ?: $student->regno;
+                // Truncate long names to 25 chars
+                if (mb_strlen($studentName) > 25) {
+                    $studentName = mb_substr($studentName, 0, 25) . '.';
+                }
+                
+                // Get results for this student
+                $studentResults = $results->get($student->regno, collect());
+                
+                // Calculate pass/fail status
+                $totalCourses = $courses->count();
+                $coursesWithResults = 0;
+                $coursesPassed = 0;
+                $passingGrades = ['A', 'B', 'C', 'D', 'B+', 'C+', 'D+', 'A+'];
+                
+                foreach ($courses as $course) {
+                    $result = $studentResults->get($course->courseID);
+                    if ($result) {
+                        $coursesWithResults++;
+                        $grade = strtoupper(trim($result->grade ?? ''));
+                        // Check if grade indicates pass
+                        if (in_array($grade, $passingGrades) || preg_match('/^[A-D][+-]?$/i', $grade)) {
+                            $coursesPassed++;
+                        }
+                    }
+                }
+                
+                // Determine status
+                $minRequired = $this->export->minimum_passes_required ?? 0;
+                $status = 'N/A';
+                $statusClass = '';
+                
+                if ($minRequired > 0) {
+                    if ($coursesWithResults < $totalCourses) {
+                        // Missing some results
+                        $status = 'INCOMPLETE';
+                        $statusClass = 'status-incomplete';
+                    } elseif ($coursesPassed >= $minRequired) {
+                        // Passed required number
+                        $status = 'PASS';
+                        $statusClass = 'status-pass';
+                    } else {
+                        // Failed to meet requirement
+                        $status = 'FAIL';
+                        $statusClass = 'status-fail';
+                    }
+                }
+                
+                $html .= '<tr>
+                            <td class="student-cell">' . e($student->regno) . '</td>
+                            <td class="student-cell">' . e($studentName) . '</td>
+                            <td class="status-cell ' . $statusClass . '">' . e($status) . '</td>';
+                
+                // Add result for each course
+                foreach ($courses as $course) {
+                    $result = $studentResults->get($course->courseID);
+                    
+                    if ($result) {
+                        $grade = $result->grade ?? 'N/A';
+                        $score = $result->score ? "({$result->score})" : '';
+                        $html .= '<td>' . e($grade) . ' ' . e($score) . '</td>';
+                    } else {
+                        $html .= '<td>-</td>';
+                    }
+                }
+                
+                $html .= '</tr>';
+            }
+            
+            $html .= '</tbody>
+                </table>
+            </div>';
+        }
+        
+        // Add course definitions section for tables with more than 20 courses
+        $hasLargeTables = false;
+        $allCourses = collect();
+        
+        foreach ($this->specializationData as $spec => $data) {
+            if ($data['courses']->count() > 20) {
+                $hasLargeTables = true;
+                $allCourses = $allCourses->merge($data['courses']);
+            }
+        }
+        
+        if ($hasLargeTables) {
+            // Remove duplicates by courseID
+            $allCourses = $allCourses->unique('courseID')->sortBy('courseID');
+            
+            $html .= '
+            <div class="course-definitions" style="margin-top: 15px; page-break-before: always;">
+                <h3 style="font-size: 9pt; color: #1a5490; margin-bottom: 5px; border-bottom: 2px solid #1a5490; padding-bottom: 2px;">COURSE DEFINITIONS</h3>
+                <table style="width: 100%; border-collapse: collapse; font-size: 6pt; margin-top: 5px;">
+                    <thead>
+                        <tr>
+                            <th style="background-color: #e8e8e8; padding: 3px; border: 1px solid #ccc; text-align: left; width: 15%;">COURSE CODE</th>
+                            <th style="background-color: #e8e8e8; padding: 3px; border: 1px solid #ccc; text-align: left; width: 85%;">COURSE NAME</th>
+                        </tr>
+                    </thead>
+                    <tbody>';
+            
+            foreach ($allCourses as $course) {
+                $html .= '<tr>
+                            <td style="padding: 2px 3px; border: 1px solid #ddd;">' . e($course->courseID) . '</td>
+                            <td style="padding: 2px 3px; border: 1px solid #ddd;">' . e($course->courseName ?? '') . '</td>
+                        </tr>';
+            }
+            
+            $html .= '</tbody>
+                </table>
+            </div>';
+        }
+        
+        $html .= '
+            <div class="footer">
                 <p>Generated by MRU Academic Management System | ' . now()->format('d M Y H:i:s') . '</p>
             </div>
         </body>

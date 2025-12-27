@@ -1,9 +1,6 @@
-Remember, we also analyzed and realized that MRU has no semester model yet this is very crutual to even know the current ongoing semester.
-
-Now, i want you to create an MRU Semester model, controller, migration and admin routes to manage semesters in the admin panel. The semester model should have fields like id, name, start_date, end_date, is_current (String of Yes or No). make it as perfect as possible.
 
 
-create MRU Semester Model and Controller: 
+create MRU acad_curriculum Model and Controller: 
 analyze all tables and detrmine which table is perfect for representing a MRU student table.
 but rememer this table may have some necessary relationships with other tables. so do this process very carefully and with knowledge of our coding standards and best practices.
 
