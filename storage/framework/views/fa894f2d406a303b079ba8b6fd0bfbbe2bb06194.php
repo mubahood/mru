@@ -220,7 +220,7 @@ if (!isset($ent)) {
 <body>
     <div class="login-box">
         <div class="logo-section">
-            <img src="{{ $ent && $ent->logo ? url('storage/' . $ent->logo) : asset('assets/8tech.png') }}" 
+            <img src="<?php echo e($ent && $ent->logo ? url('storage/' . $ent->logo) : asset('assets/8tech.png'), false); ?>" 
                  alt="MRU Logo" 
                  class="logo">
             <div class="institution-name">Mutesa I Royal University</div>
@@ -232,22 +232,23 @@ if (!isset($ent)) {
             Enter your email address, phone number, or username and we'll send you a link to reset your password.
         </p>
 
-        @if (session('status'))
+        <?php if(session('status')): ?>
             <div class="alert alert-success">
-                {{ session('status') }}
-            </div>
-        @endif
+                <?php echo e(session('status'), false); ?>
 
-        @if ($errors->any())
+            </div>
+        <?php endif; ?>
+
+        <?php if($errors->any()): ?>
             <div class="alert alert-danger">
-                @foreach ($errors->all() as $error)
-                    {{ $error }}<br>
-                @endforeach
+                <?php $__currentLoopData = $errors->all(); $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $error): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
+                    <?php echo e($error, false); ?><br>
+                <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?>
             </div>
-        @endif
+        <?php endif; ?>
 
-        <form id="resetForm" action="{{ url('auth/forgot-password') }}" method="POST">
-            @csrf
+        <form id="resetForm" action="<?php echo e(url('auth/forgot-password'), false); ?>" method="POST">
+            <?php echo csrf_field(); ?>
             
             <div class="form-group">
                 <label>Email, Phone, or Username</label>
@@ -255,7 +256,7 @@ if (!isset($ent)) {
                        name="identifier" 
                        class="form-input" 
                        placeholder="Enter your email, phone number, or username"
-                       value="{{ old('identifier') }}"
+                       value="<?php echo e(old('identifier'), false); ?>"
                        required
                        autocomplete="username">
             </div>
@@ -263,7 +264,7 @@ if (!isset($ent)) {
             <div class="form-group">
                 <label>Security Code</label>
                 <div class="captcha-row">
-                    <img src="{{ url('/auth/captcha') }}" 
+                    <img src="<?php echo e(url('/auth/captcha'), false); ?>" 
                          alt="CAPTCHA" 
                          id="captcha-image">
                     <button type="button" 
@@ -291,7 +292,7 @@ if (!isset($ent)) {
             </p>
         </div>
 
-        <a href="{{ url('auth/login') }}" class="back-link">
+        <a href="<?php echo e(url('auth/login'), false); ?>" class="back-link">
             <i class='bx bx-arrow-back'></i> Back to Sign In
         </a>
     </div>
@@ -302,7 +303,7 @@ if (!isset($ent)) {
             const captchaInput = document.querySelector('input[name="captcha"]');
             
             if (captchaImage) {
-                captchaImage.src = '{{ url("auth/captcha") }}?' + new Date().getTime();
+                captchaImage.src = '<?php echo e(url("auth/captcha"), false); ?>?' + new Date().getTime();
             }
             
             if (captchaInput) {
@@ -326,4 +327,4 @@ if (!isset($ent)) {
         });
     </script>
 </body>
-</html>
+</html><?php /**PATH /Applications/MAMP/htdocs/mru/resources/views/auth/forgot-password.blade.php ENDPATH**/ ?>

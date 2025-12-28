@@ -86,12 +86,12 @@ use Illuminate\Support\Facades\Storage;
 use PhpOffice\PhpSpreadsheet\Reader\Xlsx;
 
 Route::get('fix-student-semester-enrollment', [StudentSemesterEnrollmentController::class, 'fixEnrollments'])
-    ->middleware('admin')
-    ->name('fix-student-semester-enrollment');
+  ->middleware('admin')
+  ->name('fix-student-semester-enrollment');
 
 Route::get('process-school-issues', function (Request $request) {
   $enterprise_id = $request->get('enterprise_id', null);
-  
+
   // Check enterprise exists using raw query
   $ent = DB::selectOne("SELECT id, name FROM enterprises WHERE id = ?", [$enterprise_id]);
   if ($ent == null) {
@@ -186,7 +186,7 @@ Route::get('process-school-issues', function (Request $request) {
     ");
   }
 
-  die("Done processing school issues for enterprise: " . $ent->name); 
+  die("Done processing school issues for enterprise: " . $ent->name);
 });
 
 Route::get('attendance-report', function (Request $request) {
@@ -2231,12 +2231,19 @@ Route::get('termly-report', function (Request $r) {
 });
 
 Route::get('/', function (Request $request) {
+  //rediect to auth/login if not logged in
   $admin = Admin::user();
   $company = \App\Models\Utils::company(); // Get company data for dynamic branding
-
+  if ($admin == null) {
+    return redirect('/auth/login');
+  }else {
+    $dashboard = admin_url('dashboard');
+    return redirect($dashboard);
+  }
   //if user already logged in, redirect to dashboard
   if ($admin != null) {
-    return redirect(admin_url('mru-dashboard'));
+    $dashboard = admin_url('dashboard');
+    return redirect($dashboard);
   }
 
   // If user is not logged in, show landing page
@@ -2253,10 +2260,10 @@ Route::get('/sitemap.xml', [SitemapController::class, 'index'])->name('sitemap')
 Route::get('/robots.txt', [SitemapController::class, 'robots'])->name('robots');
 
 // SEO Redirects for common issues
-Route::redirect('/home', '/admin/mru-dashboard', 301);
-Route::redirect('/index', '/admin/mru-dashboard', 301);
-Route::redirect('/index.php', '/admin/mru-dashboard', 301);
-Route::redirect('/index.html', '/admin/mru-dashboard', 301);
+Route::redirect('/home', '/', 301);
+Route::redirect('/index', '/', 301);
+Route::redirect('/index.php', '/', 301);
+Route::redirect('/index.html', '/', 301);
 Route::redirect('/login', '/access-system', 301);
 Route::redirect('/register', '/access-system', 301);
 Route::redirect('/help', '/knowledge-base', 301);
@@ -4018,7 +4025,6 @@ Route::get('enterprises/create', function () {
 
 // Programme Curriculum PDF Routes
 Route::get('programme-curriculum/{identifier}/pdf', [ProgrammeCurriculumPdfController::class, 'generate'])
-    ->name('programme.curriculum.pdf');
+  ->name('programme.curriculum.pdf');
 Route::get('programme-curriculum/{identifier}/download', [ProgrammeCurriculumPdfController::class, 'download'])
-    ->name('programme.curriculum.download');
-
+  ->name('programme.curriculum.download');

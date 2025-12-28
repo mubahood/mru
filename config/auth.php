@@ -40,6 +40,10 @@ return [
             'driver' => 'session',
             'provider' => 'users',
         ],
+        'admin' => [
+            'driver' => 'session',
+            'provider' => 'aspnet',
+        ],
         'api' => [
             'driver' => 'jwt',
             'provider' => 'users',
@@ -65,8 +69,12 @@ return [
 
     'providers' => [
         'users' => [
-            'driver' => 'eloquent',
-            'model' => Encore\Admin\Auth\Database\Administrator::class,
+            'driver' => 'aspnet',
+            'model' => App\Models\User::class,
+        ],
+        'aspnet' => [
+            'driver' => 'aspnet',
+            'model' => App\Models\User::class,
         ],
 
         // 'users' => [
