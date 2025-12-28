@@ -2,6 +2,7 @@
 .DS_Store
 .htaccess
 public/storage/
+storage/logs/
 important comands.txt
 important comands.txt
 .htaccess
