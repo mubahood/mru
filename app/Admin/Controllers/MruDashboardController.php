@@ -202,14 +202,13 @@ class MruDashboardController extends Controller
      */
     protected function getStudentsByProgrammeYear($academicYear, $semester = null)
     {
-        $query = \Illuminate\Support\Facades\DB::table('acad_results as r')
-            ->leftJoin('acad_programme as p', 'r.progid', '=', 'p.progcode')
+        // First, get the maximum study year for each student in the academic year
+        // This ensures each student is counted only once at their highest year
+        $subquery = \Illuminate\Support\Facades\DB::table('acad_results as r')
             ->select(
+                'r.regno',
                 'r.progid',
-                'p.progname',
-                'p.abbrev',
-                'r.studyyear',
-                \Illuminate\Support\Facades\DB::raw('COUNT(DISTINCT r.regno) as student_count')
+                \Illuminate\Support\Facades\DB::raw('MAX(r.studyyear) as max_year')
             )
             ->where('r.acad', $academicYear)
             ->whereNotNull('r.studyyear')
@@ -217,13 +216,27 @@ class MruDashboardController extends Controller
 
         // Apply semester filter if provided
         if ($semester !== null && $semester !== '') {
-            $query->where('r.semester', $semester);
+            $subquery->where('r.semester', $semester);
         }
 
-        $results = $query->groupBy('r.progid', 'p.progname', 'p.abbrev', 'r.studyyear')
+        $subquery->groupBy('r.regno', 'r.progid');
+
+        // Now count students by their maximum study year
+        $query = \Illuminate\Support\Facades\DB::table(\Illuminate\Support\Facades\DB::raw('(' . $subquery->toSql() . ') as student_years'))
+            ->mergeBindings($subquery)
+            ->leftJoin('acad_programme as p', 'student_years.progid', '=', 'p.progcode')
+            ->select(
+                'student_years.progid',
+                'p.progname',
+                'p.abbrev',
+                'student_years.max_year as studyyear',
+                \Illuminate\Support\Facades\DB::raw('COUNT(DISTINCT student_years.regno) as student_count')
+            )
+            ->groupBy('student_years.progid', 'p.progname', 'p.abbrev', 'student_years.max_year')
             ->orderBy('p.progname')
-            ->orderBy('r.studyyear')
-            ->get();
+            ->orderBy('student_years.max_year');
+
+        $results = $query->get();
 
         // Transform results into a matrix structure
         $matrix = [];
@@ -253,8 +266,8 @@ class MruDashboardController extends Controller
             $programmes[$progId]['years'][$year] = $count;
         }
 
-        // Ensure years 1-6 exist for all programmes
-        $maxYear = max($maxYear, 6);
+        // Ensure years 1-3 exist for all programmes
+        $maxYear = max($maxYear, 3);
         foreach ($programmes as &$programme) {
             for ($year = 1; $year <= $maxYear; $year++) {
                 if (!isset($programme['years'][$year])) {
@@ -262,10 +275,17 @@ class MruDashboardController extends Controller
                 }
             }
             ksort($programme['years']);
+            // Calculate total for sorting
+            $programme['total'] = array_sum($programme['years']);
         }
 
+        // Sort by total enrollments descending
+        usort($programmes, function($a, $b) {
+            return $b['total'] - $a['total'];
+        });
+
         return [
-            'programmes' => array_values($programmes),
+            'programmes' => $programmes,
             'max_year' => $maxYear
         ];
     }

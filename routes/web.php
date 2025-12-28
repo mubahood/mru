@@ -2236,8 +2236,7 @@ Route::get('/', function (Request $request) {
 
   //if user already logged in, redirect to dashboard
   if ($admin != null) {
-    $dashboard = admin_url('dashboard');
-    return redirect($dashboard);
+    return redirect(admin_url('mru-dashboard'));
   }
 
   // If user is not logged in, show landing page
@@ -2254,10 +2253,10 @@ Route::get('/sitemap.xml', [SitemapController::class, 'index'])->name('sitemap')
 Route::get('/robots.txt', [SitemapController::class, 'robots'])->name('robots');
 
 // SEO Redirects for common issues
-Route::redirect('/home', '/', 301);
-Route::redirect('/index', '/', 301);
-Route::redirect('/index.php', '/', 301);
-Route::redirect('/index.html', '/', 301);
+Route::redirect('/home', '/admin/mru-dashboard', 301);
+Route::redirect('/index', '/admin/mru-dashboard', 301);
+Route::redirect('/index.php', '/admin/mru-dashboard', 301);
+Route::redirect('/index.html', '/admin/mru-dashboard', 301);
 Route::redirect('/login', '/access-system', 301);
 Route::redirect('/register', '/access-system', 301);
 Route::redirect('/help', '/knowledge-base', 301);

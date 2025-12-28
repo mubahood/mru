@@ -205,7 +205,7 @@ Route::group([
     $router->get('/transport-stats', 'HomeController@transportStats')->name('transportStats');
     // $router->get('/dashboard', 'HomeController@index')->name('dashboard');
 
-    $router->get('dashboard', 'HomeController@stats')->name('home');
+    $router->get('dashboard', 'MruDashboardController@index')->name('home');
     $router->get('/reports-finance', 'HomeController@reports_finance')->name('home');
     $router->resource('assessment-sheets', AssessmentSheetController::class);
 

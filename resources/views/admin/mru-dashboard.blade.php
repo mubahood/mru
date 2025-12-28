@@ -455,77 +455,9 @@
         </div>
     </div>
 
-    <!-- Performance & Quick Links -->
+    <!-- Students by Programme and Year of Study & Quick Links -->
     <div class="row">
-        <div class="col-md-4">
-            <div class="info-box">
-                <h3><i class="fa fa-line-chart"></i> Academic Performance</h3>
-                <table class="performance-table">
-                    <tr>
-                        <th>Pass Rate</th>
-                        <td class="success-rate">{{ $stats['pass_rate'] }}%</td>
-                    </tr>
-                    <tr>
-                        <th>Average GPA</th>
-                        <td class="gpa-score">{{ $stats['average_gpa'] }}</td>
-                    </tr>
-                    <tr>
-                        <th>Total Results</th>
-                        <td class="total-count">{{ number_format($stats['total_results']) }}</td>
-                    </tr>
-                </table>
-            </div>
-        </div>
-
-        <div class="col-md-4">
-            <div class="info-box">
-                <h3><i class="fa fa-graduation-cap"></i> Programme Enrollments</h3>
-                <div style="max-height: 280px; overflow-y: auto;">
-                    <table class="performance-table">
-                        @foreach($programmeEnrollments as $programme)
-                        <tr>
-                            <th style="width: 70%; font-size: 11px; font-weight: 500;">
-                                {{ $programme->progname ?? $programme->prog_id }}
-                            </th>
-                            <td style="text-align: right; font-size: 14px; font-weight: 700; color: {{ $primaryColor }};">
-                                {{ number_format($programme->student_count) }}
-                            </td>
-                        </tr>
-                        @endforeach
-                        @if($programmeEnrollments->isEmpty())
-                        <tr>
-                            <td colspan="2" style="text-align: center; color: #999; padding: 20px;">
-                                No programme enrollments found
-                            </td>
-                        </tr>
-                        @endif
-                    </table>
-                </div>
-            </div>
-        </div>
-
-        <div class="col-md-4">
-            <div class="info-box">
-                <h3><i class="fa fa-link"></i> Quick Links</h3>
-                <a href="{{ admin_url('mru-results') }}" class="quick-link-btn">
-                    <i class="fa fa-list"></i> View All Results
-                </a>
-                <a href="{{ admin_url('mru-academic-result-exports') }}" class="quick-link-btn">
-                    <i class="fa fa-download"></i> Export Results
-                </a>
-                <a href="{{ admin_url('mru-students') }}" class="quick-link-btn">
-                    <i class="fa fa-users"></i> Manage Students
-                </a>
-                <a href="{{ admin_url('mru-courses') }}" class="quick-link-btn">
-                    <i class="fa fa-book"></i> Manage Courses
-                </a>
-            </div>
-        </div>
-    </div>
-
-    <!-- Students by Programme and Year of Study -->
-    <div class="row">
-        <div class="col-md-12">
+        <div class="col-md-8">
             <div class="info-box">
                 <h3><i class="fa fa-table"></i> Students by Programme & Year of Study</h3>
                 <div style="overflow-x: auto;">
@@ -534,7 +466,7 @@
                             <tr>
                                 <th style="width: 40%; text-align: left;">Programme</th>
                                 @for($year = 1; $year <= $studentsByProgrammeYear['max_year']; $year++)
-                                    <th style="width: {{ 60 / $studentsByProgrammeYear['max_year'] }}%; text-align: center;">Year {{ $year }}</th>
+                                    <th style="width: {{ 50 / $studentsByProgrammeYear['max_year'] }}%; text-align: center;">Year {{ $year }}</th>
                                 @endfor
                                 <th style="width: 10%; text-align: center; background: {{ $primaryColor }}; color: white;">Total</th>
                             </tr>
@@ -547,8 +479,8 @@
                                     $grandTotal += $progTotal;
                                 @endphp
                                 <tr>
-                                    <td style="font-weight: 600; font-size: 11px;">
-                                        {{ $programme['abbrev'] ?? $programme['progid'] }}
+                                    <td style="font-weight: 600; font-size: 12px;">
+                                        {{ $programme['progname'] ?? $programme['abbrev'] ?? $programme['progid'] }}
                                     </td>
                                     @for($year = 1; $year <= $studentsByProgrammeYear['max_year']; $year++)
                                         <td style="text-align: center; font-size: 13px; font-weight: 600; color: {{ $programme['years'][$year] > 0 ? $primaryColor : '#ccc' }};">
@@ -588,6 +520,36 @@
                         </tbody>
                     </table>
                 </div>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="info-box">
+                <h3><i class="fa fa-link"></i> Quick Links</h3>
+                <a href="{{ admin_url('mru-results') }}" class="quick-link-btn">
+                    <i class="fa fa-list"></i> View All Results
+                </a>
+                <a href="{{ admin_url('mru-academic-result-exports') }}" class="quick-link-btn">
+                    <i class="fa fa-download"></i> Export Results
+                </a>
+                <a href="{{ admin_url('mru-students') }}" class="quick-link-btn">
+                    <i class="fa fa-users"></i> Manage Students
+                </a>
+                <a href="{{ admin_url('mru-courses') }}" class="quick-link-btn">
+                    <i class="fa fa-book"></i> Manage Courses
+                </a>
+                <a href="{{ admin_url('mru-programmes') }}" class="quick-link-btn">
+                    <i class="fa fa-graduation-cap"></i> Manage Programmes
+                </a>
+                <a href="{{ admin_url('mru-faculties') }}" class="quick-link-btn">
+                    <i class="fa fa-building"></i> Manage Faculties
+                </a>
+                <a href="{{ admin_url('mru-course-registrations') }}" class="quick-link-btn">
+                    <i class="fa fa-registered"></i> Course Registrations
+                </a>
+                <a href="{{ admin_url('mru-academic-years') }}" class="quick-link-btn">
+                    <i class="fa fa-calendar"></i> Academic Years
+                </a>
             </div>
         </div>
     </div>

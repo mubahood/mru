@@ -455,79 +455,9 @@
         </div>
     </div>
 
-    <!-- Performance & Quick Links -->
+    <!-- Students by Programme and Year of Study & Quick Links -->
     <div class="row">
-        <div class="col-md-4">
-            <div class="info-box">
-                <h3><i class="fa fa-line-chart"></i> Academic Performance</h3>
-                <table class="performance-table">
-                    <tr>
-                        <th>Pass Rate</th>
-                        <td class="success-rate"><?php echo e($stats['pass_rate'], false); ?>%</td>
-                    </tr>
-                    <tr>
-                        <th>Average GPA</th>
-                        <td class="gpa-score"><?php echo e($stats['average_gpa'], false); ?></td>
-                    </tr>
-                    <tr>
-                        <th>Total Results</th>
-                        <td class="total-count"><?php echo e(number_format($stats['total_results']), false); ?></td>
-                    </tr>
-                </table>
-            </div>
-        </div>
-
-        <div class="col-md-4">
-            <div class="info-box">
-                <h3><i class="fa fa-graduation-cap"></i> Programme Enrollments</h3>
-                <div style="max-height: 280px; overflow-y: auto;">
-                    <table class="performance-table">
-                        <?php $__currentLoopData = $programmeEnrollments; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $programme): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
-                        <tr>
-                            <th style="width: 70%; font-size: 11px; font-weight: 500;">
-                                <?php echo e($programme->progname ?? $programme->prog_id, false); ?>
-
-                            </th>
-                            <td style="text-align: right; font-size: 14px; font-weight: 700; color: <?php echo e($primaryColor, false); ?>;">
-                                <?php echo e(number_format($programme->student_count), false); ?>
-
-                            </td>
-                        </tr>
-                        <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?>
-                        <?php if($programmeEnrollments->isEmpty()): ?>
-                        <tr>
-                            <td colspan="2" style="text-align: center; color: #999; padding: 20px;">
-                                No programme enrollments found
-                            </td>
-                        </tr>
-                        <?php endif; ?>
-                    </table>
-                </div>
-            </div>
-        </div>
-
-        <div class="col-md-4">
-            <div class="info-box">
-                <h3><i class="fa fa-link"></i> Quick Links</h3>
-                <a href="<?php echo e(admin_url('mru-results'), false); ?>" class="quick-link-btn">
-                    <i class="fa fa-list"></i> View All Results
-                </a>
-                <a href="<?php echo e(admin_url('mru-academic-result-exports'), false); ?>" class="quick-link-btn">
-                    <i class="fa fa-download"></i> Export Results
-                </a>
-                <a href="<?php echo e(admin_url('mru-students'), false); ?>" class="quick-link-btn">
-                    <i class="fa fa-users"></i> Manage Students
-                </a>
-                <a href="<?php echo e(admin_url('mru-courses'), false); ?>" class="quick-link-btn">
-                    <i class="fa fa-book"></i> Manage Courses
-                </a>
-            </div>
-        </div>
-    </div>
-
-    <!-- Students by Programme and Year of Study -->
-    <div class="row">
-        <div class="col-md-12">
+        <div class="col-md-8">
             <div class="info-box">
                 <h3><i class="fa fa-table"></i> Students by Programme & Year of Study</h3>
                 <div style="overflow-x: auto;">
@@ -536,7 +466,7 @@
                             <tr>
                                 <th style="width: 40%; text-align: left;">Programme</th>
                                 <?php for($year = 1; $year <= $studentsByProgrammeYear['max_year']; $year++): ?>
-                                    <th style="width: <?php echo e(60 / $studentsByProgrammeYear['max_year'], false); ?>%; text-align: center;">Year <?php echo e($year, false); ?></th>
+                                    <th style="width: <?php echo e(50 / $studentsByProgrammeYear['max_year'], false); ?>%; text-align: center;">Year <?php echo e($year, false); ?></th>
                                 <?php endfor; ?>
                                 <th style="width: 10%; text-align: center; background: <?php echo e($primaryColor, false); ?>; color: white;">Total</th>
                             </tr>
@@ -549,8 +479,8 @@
                                     $grandTotal += $progTotal;
                                 ?>
                                 <tr>
-                                    <td style="font-weight: 600; font-size: 11px;">
-                                        <?php echo e($programme['abbrev'] ?? $programme['progid'], false); ?>
+                                    <td style="font-weight: 600; font-size: 12px;">
+                                        <?php echo e($programme['progname'] ?? $programme['abbrev'] ?? $programme['progid'], false); ?>
 
                                     </td>
                                     <?php for($year = 1; $year <= $studentsByProgrammeYear['max_year']; $year++): ?>
@@ -595,6 +525,36 @@
                         </tbody>
                     </table>
                 </div>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="info-box">
+                <h3><i class="fa fa-link"></i> Quick Links</h3>
+                <a href="<?php echo e(admin_url('mru-results'), false); ?>" class="quick-link-btn">
+                    <i class="fa fa-list"></i> View All Results
+                </a>
+                <a href="<?php echo e(admin_url('mru-academic-result-exports'), false); ?>" class="quick-link-btn">
+                    <i class="fa fa-download"></i> Export Results
+                </a>
+                <a href="<?php echo e(admin_url('mru-students'), false); ?>" class="quick-link-btn">
+                    <i class="fa fa-users"></i> Manage Students
+                </a>
+                <a href="<?php echo e(admin_url('mru-courses'), false); ?>" class="quick-link-btn">
+                    <i class="fa fa-book"></i> Manage Courses
+                </a>
+                <a href="<?php echo e(admin_url('mru-programmes'), false); ?>" class="quick-link-btn">
+                    <i class="fa fa-graduation-cap"></i> Manage Programmes
+                </a>
+                <a href="<?php echo e(admin_url('mru-faculties'), false); ?>" class="quick-link-btn">
+                    <i class="fa fa-building"></i> Manage Faculties
+                </a>
+                <a href="<?php echo e(admin_url('mru-course-registrations'), false); ?>" class="quick-link-btn">
+                    <i class="fa fa-registered"></i> Course Registrations
+                </a>
+                <a href="<?php echo e(admin_url('mru-academic-years'), false); ?>" class="quick-link-btn">
+                    <i class="fa fa-calendar"></i> Academic Years
+                </a>
             </div>
         </div>
     </div>
