@@ -51,6 +51,29 @@ class TempMruSpecializationHasCourseController extends AdminController
         $grid->disableExport();
         $grid->disableColumnSelector();
         
+        // Quick search across all columns
+        $grid->quickSearch(function ($model, $query) {
+            $model->where(function ($q) use ($query) {
+                $q->where('course_code', 'like', "%{$query}%")
+                  ->orWhere('year', 'like', "%{$query}%")
+                  ->orWhere('semester', 'like', "%{$query}%")
+                  ->orWhere('credits', 'like', "%{$query}%")
+                  ->orWhere('type', 'like', "%{$query}%")
+                  ->orWhere('status', 'like', "%{$query}%")
+                  ->orWhere('approval_status', 'like', "%{$query}%")
+                  ->orWhereHas('specialization', function ($sq) use ($query) {
+                      $sq->where('spec', 'like', "%{$query}%");
+                  })
+                  ->orWhereHas('course', function ($cq) use ($query) {
+                      $cq->where('courseName', 'like', "%{$query}%");
+                  })
+                  ->orWhereHas('programme', function ($pq) use ($query) {
+                      $pq->where('progname', 'like', "%{$query}%")
+                         ->orWhere('progcode', 'like', "%{$query}%");
+                  });
+            });
+        })->placeholder('Search: course code, name, specialization, programme...');
+        
         /*
         |--------------------------------------------------------------------------
         | Batch Actions
