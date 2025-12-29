@@ -14,9 +14,24 @@ Route::group([
     // MRU Dashboard
     $router->get('mru-dashboard', 'MruDashboardController@index')->name('mru-dashboard');
 
+    // MRU API Endpoints
+    $router->get('api/courses-by-specialization', 'MruSpecializationHasCourseController@getCoursesBySpecialization');
+
     $router->resource('mru-results', MruResultController::class);
     $router->resource('mru-faculties', MruFacultyController::class);
     $router->resource('mru-programmes', MruProgrammeController::class);
+    
+    // MRU Specialization - Curriculum Generation (MUST be before resource route)
+    $router->get('mru-specialisations/{id}/generate-curriculum', 'MruSpecialisationController@generateCurriculum')
+        ->name('mru-specialisations.generate-curriculum');
+    $router->post('mru-specialisations/{id}/process-generate-curriculum', 'MruSpecialisationController@processGenerateCurriculum')
+        ->name('mru-specialisations.process-generate-curriculum');
+    $router->get('mru-specialisations/{id}/curriculum-pdf', 'MruSpecialisationController@curriculumPdf')
+        ->name('mru-specialisations.curriculum-pdf');
+    
+    $router->resource('mru-specialisations', MruSpecialisationController::class);
+    $router->resource('mru-specialization-courses', MruSpecializationHasCourseController::class);
+    $router->resource('mru-temp-specialization-courses', TempMruSpecializationHasCourseController::class);
     $router->get('mru-programmes-configurations/auto-fill', 'MruProgrammeConfigurationController@autoFill');
     $router->resource('mru-programmes-configurations', MruProgrammeConfigurationController::class);
     $router->resource('mru-programme-courses', MruProgrammeCourseController::class);

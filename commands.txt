@@ -1,6 +1,8 @@
+please create TempMruSpecializationHasCourse model, it will be almost a copy of real MruSpecializationHasCourse model but with only these fields:
 
+we will be using to generate autmatically curriculum for a specialization, then from it we shall be selecting what to copy to real MruSpecializationHasCourse model. 
 
-create MRU acad_curriculum Model and Controller: 
+Create TempMruSpecializationHasCourse Model and Controller: 
 analyze all tables and detrmine which table is perfect for representing a MRU student table.
 but rememer this table may have some necessary relationships with other tables. so do this process very carefully and with knowledge of our coding standards and best practices.
 
@@ -32,3 +34,7 @@ when done, add the controller in laravel admin routes. ensure it start with mru-
 Finally, double-check everything to ensure it is perfect and error-free before finalizing.
 
 add the endpoint to laravel-admin menu uner mru submenu. 
+
+.
+
+ 
