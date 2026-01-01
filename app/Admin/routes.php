@@ -18,6 +18,14 @@ Route::group([
     $router->get('api/courses-by-specialization', 'MruSpecializationHasCourseController@getCoursesBySpecialization');
 
     $router->resource('remote-database-syncs-admin', RemoteDataBaseSyncController::class);
+    
+    // MRU Results Summary Reports (MUST be before resource route)
+    $router->get('mru-results/summary-reports', 'MruResultController@summaryReports');
+    $router->get('mru-results/generate-vc-list', 'MruResultController@generateVCList');
+    $router->get('mru-results/generate-deans-list', 'MruResultController@generateDeansList');
+    $router->get('mru-results/generate-pass-cases', 'MruResultController@generatePassCases');
+    $router->get('mru-results/generate-retake-cases', 'MruResultController@generateRetakeCases');
+    
     $router->resource('mru-results', MruResultController::class);
     $router->resource('mru-faculties', MruFacultyController::class);
     $router->resource('mru-programmes', MruProgrammeController::class);
@@ -61,6 +69,14 @@ Route::group([
         ->name('mru-academic-result-exports.download-pdf');
     $router->get('mru-academic-result-exports/{id}/view-html', 'MruAcademicResultExportController@viewHtml')
         ->name('mru-academic-result-exports.view-html');
+    
+    // Summary Reports for Academic Result Exports
+    $router->get('mru-academic-result-exports/{id}/summary-reports', 'MruAcademicResultExportController@summaryReports');
+    $router->get('mru-academic-result-exports/{id}/generate-complete-summary', 'MruAcademicResultExportController@generateCompleteSummary');
+    $router->get('mru-academic-result-exports/{id}/generate-vc-list', 'MruAcademicResultExportController@generateVCList');
+    $router->get('mru-academic-result-exports/{id}/generate-deans-list', 'MruAcademicResultExportController@generateDeansList');
+    $router->get('mru-academic-result-exports/{id}/generate-pass-cases', 'MruAcademicResultExportController@generatePassCases');
+    $router->get('mru-academic-result-exports/{id}/generate-retake-cases', 'MruAcademicResultExportController@generateRetakeCases');
 
     $router->resource('employees-batch-importers', EmployeesBatchImporterController::class);
     $router->resource('employees', EmployeesController::class);

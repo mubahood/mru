@@ -12,6 +12,7 @@ use Encore\Admin\Form;
 use Encore\Admin\Grid;
 use Encore\Admin\Show;
 use Illuminate\Support\Facades\DB;
+use Barryvdh\DomPDF\Facade\Pdf;
 
 /**
  * MruResultController
@@ -117,6 +118,41 @@ class MruResultController extends AdminController
 
         // Status
         $grid->column('status', __('Status'))->sortable();
+        /*
+        |----------------------------------------------------------------------
+        | CUSTOM TOOLS - SUMMARY REPORTS
+        |----------------------------------------------------------------------
+        */
+
+        $grid->tools(function ($tools) {
+            $tools->append('
+                <div class="btn-group pull-right" style="margin-right: 10px">
+                    <button type="button" class="btn btn-success btn-sm" id="generate-summary-btn">
+                        <i class="fa fa-file-pdf-o"></i> Generate Summary Reports
+                    </button>
+                </div>
+                
+                <script>
+                    $(document).ready(function() {
+                        $("#generate-summary-btn").click(function() {
+                            // Get current filter values
+                            var params = new URLSearchParams(window.location.search);
+                            var acad = params.get("acad") || "";
+                            var semester = params.get("semester") || "";
+                            var progid = params.get("progid") || "";
+                            var studyyear = params.get("studyyear") || "";
+                            
+                            // Build URL with parameters
+                            var url = "' . admin_url('mru-results/summary-reports') . '";
+                            url += "?acad=" + acad + "&semester=" + semester + "&progid=" + progid + "&studyyear=" + studyyear;
+                            
+                            // Open in new tab
+                            window.open(url, "_blank");
+                        });
+                    });
+                </script>
+            ');
+        });
 
         /*
         |----------------------------------------------------------------------
@@ -667,5 +703,247 @@ class MruResultController extends AdminController
                        $grade . ': ' . number_format($count) . '</span>';
             }, array_keys($gradeDistribution), $gradeDistribution)) . '
         </div>' : '');
+    }
+
+    /**
+     * Generate Summary Reports Page
+     * Shows interface to generate VC List, Dean List, Pass Cases, etc.
+     */
+    public function summaryReports()
+    {
+        $acad = request('acad');
+        $semester = request('semester');
+        $progid = request('progid');
+        $studyyear = request('studyyear');
+
+        return view('admin.results.summary-reports', compact('acad', 'semester', 'progid', 'studyyear'));
+    }
+
+    /**
+     * Generate VC's List PDF
+     * Students with CGPA 4.40 - 5.00
+     */
+    public function generateVCList()
+    {
+        $params = $this->getSummaryParams();
+        
+        $students = $this->getPerformanceList(4.40, 5.00, $params);
+        
+        return $this->generatePDF('VC\'s List', $students, $params);
+    }
+
+    /**
+     * Generate Dean's List PDF
+     * Students with CGPA 4.00 - 4.39
+     */
+    public function generateDeansList()
+    {
+        $params = $this->getSummaryParams();
+        
+        $students = $this->getPerformanceList(4.00, 4.39, $params);
+        
+        return $this->generatePDF('Dean\'s List', $students, $params);
+    }
+
+    /**
+     * Generate Pass Cases PDF
+     * Students who passed all courses
+     */
+    public function generatePassCases()
+    {
+        $params = $this->getSummaryParams();
+        
+        $students = $this->getPassCases($params);
+        
+        return $this->generatePDF('Pass Cases - Normal Progress', $students, $params);
+    }
+
+    /**
+     * Generate Retake Cases PDF
+     * Students who failed at least one course
+     */
+    public function generateRetakeCases()
+    {
+        $params = $this->getSummaryParams();
+        
+        $students = $this->getRetakeCases($params);
+        
+        return $this->generatePDF('Retake Cases', $students, $params);
+    }
+
+    /**
+     * Get summary report parameters from request
+     */
+    private function getSummaryParams()
+    {
+        return [
+            'acad' => request('acad'),
+            'semester' => request('semester'),
+            'progid' => request('progid'),
+            'studyyear' => request('studyyear'),
+        ];
+    }
+
+    /**
+     * Get performance list (VC/Dean)
+     * Calculates CGPA and filters by range
+     */
+    private function getPerformanceList($cgpaMin, $cgpaMax, $params)
+    {
+        $query = DB::table('acad_results as r')
+            ->join('acad_student as s', 's.regno', '=', 'r.regno')
+            ->select(
+                'r.regno',
+                's.entryno',
+                DB::raw("CONCAT(s.othername, ' ', s.firstname) as studname"),
+                's.gender',
+                'r.progid',
+                DB::raw('(SELECT SUM(r2.CreditUnits * r2.gradept) / NULLIF(SUM(r2.CreditUnits), 0) 
+                         FROM acad_results r2 
+                         WHERE r2.regno = r.regno) as cgpa')
+            )
+            ->whereNotNull('r.regno')
+            ->groupBy('r.regno', 's.entryno', 's.othername', 's.firstname', 's.gender', 'r.progid');
+
+        // Apply filters
+        if (!empty($params['acad'])) {
+            $query->where('r.acad', $params['acad']);
+        }
+        if (!empty($params['semester'])) {
+            $query->where('r.semester', $params['semester']);
+        }
+        if (!empty($params['progid'])) {
+            $query->where('r.progid', $params['progid']);
+        }
+        if (!empty($params['studyyear'])) {
+            $query->where('r.studyyear', $params['studyyear']);
+        }
+
+        $results = $query->get();
+
+        // Filter by CGPA range and sort
+        return $results->filter(function($student) use ($cgpaMin, $cgpaMax) {
+            return $student->cgpa >= $cgpaMin && $student->cgpa <= $cgpaMax;
+        })->sortByDesc('cgpa')->values();
+    }
+
+    /**
+     * Get pass cases - students who passed all courses
+     */
+    private function getPassCases($params)
+    {
+        // Get program level to determine pass threshold
+        $programLevel = null;
+        if (!empty($params['progid'])) {
+            $prog = MruProgramme::where('progcode', $params['progid'])->first();
+            $programLevel = $prog ? $prog->proglev : null;
+        }
+
+        // Pass threshold: 50 for undergrad, 60 for postgrad
+        $passThreshold = ($programLevel && $programLevel >= 4) ? 60 : 50;
+
+        // Get all students in the filters
+        $allStudentsQuery = DB::table('acad_results as r')
+            ->join('acad_student as s', 's.regno', '=', 'r.regno')
+            ->select('r.regno', 's.entryno', DB::raw("CONCAT(s.othername, ' ', s.firstname) as studname"), 
+                    's.gender', 'r.progid')
+            ->whereNotNull('r.regno');
+
+        if (!empty($params['acad'])) {
+            $allStudentsQuery->where('r.acad', $params['acad']);
+        }
+        if (!empty($params['semester'])) {
+            $allStudentsQuery->where('r.semester', $params['semester']);
+        }
+        if (!empty($params['progid'])) {
+            $allStudentsQuery->where('r.progid', $params['progid']);
+        }
+        if (!empty($params['studyyear'])) {
+            $allStudentsQuery->where('r.studyyear', $params['studyyear']);
+        }
+
+        // Get students with any failing grade
+        $failedStudentsQuery = DB::table('acad_results as r')
+            ->select('r.regno')
+            ->where('r.score', '<', $passThreshold);
+
+        if (!empty($params['acad'])) {
+            $failedStudentsQuery->where('r.acad', $params['acad']);
+        }
+        if (!empty($params['semester'])) {
+            $failedStudentsQuery->where('r.semester', $params['semester']);
+        }
+        if (!empty($params['progid'])) {
+            $failedStudentsQuery->where('r.progid', $params['progid']);
+        }
+        if (!empty($params['studyyear'])) {
+            $failedStudentsQuery->where('r.studyyear', $params['studyyear']);
+        }
+
+        $failedRegnos = $failedStudentsQuery->pluck('regno')->toArray();
+
+        // Return students NOT in failed list
+        return $allStudentsQuery
+            ->whereNotIn('r.regno', $failedRegnos)
+            ->groupBy('r.regno', 's.entryno', 's.othername', 's.firstname', 's.gender', 'r.progid')
+            ->orderBy('studname')
+            ->get();
+    }
+
+    /**
+     * Get retake cases - students who failed at least one course
+     */
+    private function getRetakeCases($params)
+    {
+        // Get program level to determine pass threshold
+        $programLevel = null;
+        if (!empty($params['progid'])) {
+            $prog = MruProgramme::where('progcode', $params['progid'])->first();
+            $programLevel = $prog ? $prog->proglev : null;
+        }
+
+        // Pass threshold: 50 for undergrad, 60 for postgrad
+        $passThreshold = ($programLevel && $programLevel >= 4) ? 60 : 50;
+
+        $query = DB::table('acad_results as r')
+            ->join('acad_student as s', 's.regno', '=', 'r.regno')
+            ->select('r.regno', 's.entryno', DB::raw("CONCAT(s.othername, ' ', s.firstname) as studname"),
+                    's.gender', 'r.progid',
+                    DB::raw("GROUP_CONCAT(DISTINCT CONCAT(r.courseid, ' (', r.grade, ')') SEPARATOR ', ') as failed_courses"))
+            ->where('r.score', '<', $passThreshold)
+            ->whereNotNull('r.regno');
+
+        // Apply filters
+        if (!empty($params['acad'])) {
+            $query->where('r.acad', $params['acad']);
+        }
+        if (!empty($params['semester'])) {
+            $query->where('r.semester', $params['semester']);
+        }
+        if (!empty($params['progid'])) {
+            $query->where('r.progid', $params['progid']);
+        }
+        if (!empty($params['studyyear'])) {
+            $query->where('r.studyyear', $params['studyyear']);
+        }
+
+        return $query
+            ->groupBy('r.regno', 's.entryno', 's.othername', 's.firstname', 's.gender', 'r.progid')
+            ->orderBy('studname')
+            ->get();
+    }
+
+    /**
+     * Generate PDF from student data
+     */
+    private function generatePDF($title, $students, $params)
+    {
+        $pdf = Pdf::loadView('admin.results.pdf-template', compact('title', 'students', 'params'));
+        
+        $pdf->setPaper('A4', 'portrait');
+        
+        $filename = str_replace(' ', '_', $title) . '_' . date('Y-m-d') . '.pdf';
+        
+        return $pdf->stream($filename);
     }
 }

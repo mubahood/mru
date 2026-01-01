@@ -18,6 +18,8 @@ use Illuminate\Http\Request;
 use Maatwebsite\Excel\Facades\Excel;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Illuminate\Support\Facades\DB;
+use Barryvdh\DomPDF\Facade\Pdf;
 
 class MruAcademicResultExportController extends AdminController
 {
@@ -222,6 +224,14 @@ class MruAcademicResultExportController extends AdminController
 
             $filter->between('created_at', 'Created At')->datetime();
         });
+
+        $grid->column('generate_summary', __('Generate Summary'))
+            ->display(function () {
+                $url = admin_url("mru-academic-result-exports/{$this->id}/summary-reports");
+                return "<a href='$url' target='_blank' class='btn btn-sm btn-warning'>
+                    <i class='fa fa-file-pdf-o'></i> Summary
+                </a>";
+            });
 
         $grid->actions(function ($actions) {
             $row = $actions->row;
@@ -462,5 +472,313 @@ class MruAcademicResultExportController extends AdminController
         $this->processExport($export);
         
         return redirect(admin_url('mru-academic-result-exports'));
+    }
+
+    /**
+     * Show summary reports selection page
+     */
+    public function summaryReports($id)
+    {
+        $export = MruAcademicResultExport::findOrFail($id);
+        
+        return view('admin.results.summary-reports-export', compact('export'));
+    }
+
+    /**
+     * Generate Complete Summary Report (All Lists in One PDF)
+     */
+    public function generateCompleteSummary($id)
+    {
+        $export = MruAcademicResultExport::findOrFail($id);
+        $params = $this->getExportParams($export);
+        
+        // Get all lists
+        $vcList = $this->getPerformanceList(4.40, 5.00, $params);
+        $deansList = $this->getPerformanceList(4.00, 4.39, $params);
+        $passCases = $this->getPassCases($params);
+        $retakeCases = $this->getRetakeCases($params);
+        
+        $data = [
+            'export' => $export,
+            'params' => $params,
+            'vcList' => $vcList,
+            'deansList' => $deansList,
+            'passCases' => $passCases,
+            'retakeCases' => $retakeCases,
+        ];
+        
+        $pdf = Pdf::loadView('admin.results.complete-summary-pdf', $data);
+        
+        $pdf->setPaper('A4', 'portrait');
+        
+        $filename = 'Academic_Results_Summary_' . $export->export_name . '_' . date('Y-m-d') . '.pdf';
+        
+        return $pdf->stream($filename);
+    }
+
+    /**
+     * Generate VC's List PDF (CGPA 4.40 - 5.00)
+     */
+    public function generateVCList($id)
+    {
+        $export = MruAcademicResultExport::findOrFail($id);
+        $params = $this->getExportParams($export);
+        
+        $students = $this->getPerformanceList(4.40, 5.00, $params);
+        
+        return $this->generateSummaryPDF('VC\'s List', $students, $export);
+    }
+
+    /**
+     * Generate Dean's List PDF (CGPA 4.00 - 4.39)
+     */
+    public function generateDeansList($id)
+    {
+        $export = MruAcademicResultExport::findOrFail($id);
+        $params = $this->getExportParams($export);
+        
+        $students = $this->getPerformanceList(4.00, 4.39, $params);
+        
+        return $this->generateSummaryPDF('Dean\'s List', $students, $export);
+    }
+
+    /**
+     * Generate Pass Cases PDF
+     */
+    public function generatePassCases($id)
+    {
+        $export = MruAcademicResultExport::findOrFail($id);
+        $params = $this->getExportParams($export);
+        
+        $students = $this->getPassCases($params);
+        
+        return $this->generateSummaryPDF('Pass Cases - Normal Progress', $students, $export);
+    }
+
+    /**
+     * Generate Retake Cases PDF
+     */
+    public function generateRetakeCases($id)
+    {
+        $export = MruAcademicResultExport::findOrFail($id);
+        $params = $this->getExportParams($export);
+        
+        $students = $this->getRetakeCases($params);
+        
+        return $this->generateSummaryPDF('Retake Cases', $students, $export);
+    }
+
+    /**
+     * Get parameters from export record
+     */
+    private function getExportParams($export)
+    {
+        return [
+            'acad' => $export->academic_year,
+            'semester' => $export->semester,
+            'progid' => $export->programme_id,
+            'studyyear' => $export->study_year,
+            'specialisation_id' => $export->specialisation_id,
+            'start_range' => $export->start_range,
+            'end_range' => $export->end_range,
+        ];
+    }
+
+    /**
+     * Get performance list (VC/Dean) with CGPA calculation
+     */
+    private function getPerformanceList($cgpaMin, $cgpaMax, $params)
+    {
+        $query = DB::table('acad_results as r')
+            ->join('acad_student as s', 's.regno', '=', 'r.regno')
+            ->select(
+                'r.regno',
+                's.entryno',
+                DB::raw("CONCAT(s.othername, ' ', s.firstname) as studname"),
+                's.gender',
+                'r.progid',
+                DB::raw('(SELECT SUM(r2.CreditUnits * r2.gradept) / NULLIF(SUM(r2.CreditUnits), 0) 
+                         FROM acad_results r2 
+                         WHERE r2.regno = r.regno) as cgpa')
+            )
+            ->whereNotNull('r.regno')
+            ->groupBy('r.regno', 's.entryno', 's.othername', 's.firstname', 's.gender', 'r.progid');
+
+        // Apply filters from export configuration
+        if (!empty($params['acad'])) {
+            $query->where('r.acad', $params['acad']);
+        }
+        if (!empty($params['semester'])) {
+            $query->where('r.semester', $params['semester']);
+        }
+        if (!empty($params['progid'])) {
+            $query->where('r.progid', $params['progid']);
+        }
+        if (!empty($params['studyyear'])) {
+            $query->where('r.studyyear', $params['studyyear']);
+        }
+        if (!empty($params['specialisation_id'])) {
+            $query->where('r.spec_id', $params['specialisation_id']);
+        }
+
+        $results = $query->get();
+
+        // Filter by CGPA range
+        $filtered = $results->filter(function($student) use ($cgpaMin, $cgpaMax) {
+            return $student->cgpa >= $cgpaMin && $student->cgpa <= $cgpaMax;
+        })->sortByDesc('cgpa')->values();
+
+        // Apply range limit if specified
+        if (!empty($params['start_range']) && !empty($params['end_range'])) {
+            $start = $params['start_range'] - 1; // Convert to 0-based index
+            $end = $params['end_range'];
+            $filtered = $filtered->slice($start, $end - $start)->values();
+        }
+
+        return $filtered;
+    }
+
+    /**
+     * Get pass cases - students who passed all courses
+     */
+    private function getPassCases($params)
+    {
+        // Get program level
+        $programLevel = null;
+        if (!empty($params['progid'])) {
+            $prog = MruProgramme::where('progcode', $params['progid'])->first();
+            $programLevel = $prog ? $prog->proglev : null;
+        }
+
+        $passThreshold = ($programLevel && $programLevel >= 4) ? 60 : 50;
+
+        // Get all students
+        $allStudentsQuery = DB::table('acad_results as r')
+            ->join('acad_student as s', 's.regno', '=', 'r.regno')
+            ->select('r.regno', 's.entryno', DB::raw("CONCAT(s.othername, ' ', s.firstname) as studname"), 
+                    's.gender', 'r.progid')
+            ->whereNotNull('r.regno');
+
+        if (!empty($params['acad'])) {
+            $allStudentsQuery->where('r.acad', $params['acad']);
+        }
+        if (!empty($params['semester'])) {
+            $allStudentsQuery->where('r.semester', $params['semester']);
+        }
+        if (!empty($params['progid'])) {
+            $allStudentsQuery->where('r.progid', $params['progid']);
+        }
+        if (!empty($params['studyyear'])) {
+            $allStudentsQuery->where('r.studyyear', $params['studyyear']);
+        }
+        if (!empty($params['specialisation_id'])) {
+            $allStudentsQuery->where('r.spec_id', $params['specialisation_id']);
+        }
+
+        // Get students with failing grades
+        $failedStudentsQuery = DB::table('acad_results as r')
+            ->select('r.regno')
+            ->where('r.score', '<', $passThreshold);
+
+        if (!empty($params['acad'])) {
+            $failedStudentsQuery->where('r.acad', $params['acad']);
+        }
+        if (!empty($params['semester'])) {
+            $failedStudentsQuery->where('r.semester', $params['semester']);
+        }
+        if (!empty($params['progid'])) {
+            $failedStudentsQuery->where('r.progid', $params['progid']);
+        }
+        if (!empty($params['studyyear'])) {
+            $failedStudentsQuery->where('r.studyyear', $params['studyyear']);
+        }
+        if (!empty($params['specialisation_id'])) {
+            $failedStudentsQuery->where('r.spec_id', $params['specialisation_id']);
+        }
+
+        $failedRegnos = $failedStudentsQuery->pluck('regno')->toArray();
+
+        $results = $allStudentsQuery
+            ->whereNotIn('r.regno', $failedRegnos)
+            ->groupBy('r.regno', 's.entryno', 's.othername', 's.firstname', 's.gender', 'r.progid')
+            ->orderBy('studname')
+            ->get();
+
+        // Apply range limit
+        if (!empty($params['start_range']) && !empty($params['end_range'])) {
+            $start = $params['start_range'] - 1;
+            $end = $params['end_range'];
+            $results = $results->slice($start, $end - $start)->values();
+        }
+
+        return $results;
+    }
+
+    /**
+     * Get retake cases - students who failed at least one course
+     */
+    private function getRetakeCases($params)
+    {
+        $programLevel = null;
+        if (!empty($params['progid'])) {
+            $prog = MruProgramme::where('progcode', $params['progid'])->first();
+            $programLevel = $prog ? $prog->proglev : null;
+        }
+
+        $passThreshold = ($programLevel && $programLevel >= 4) ? 60 : 50;
+
+        $query = DB::table('acad_results as r')
+            ->join('acad_student as s', 's.regno', '=', 'r.regno')
+            ->select('r.regno', 's.entryno', DB::raw("CONCAT(s.othername, ' ', s.firstname) as studname"),
+                    's.gender', 'r.progid',
+                    DB::raw("GROUP_CONCAT(DISTINCT CONCAT(r.courseid, ' (', r.grade, ')') SEPARATOR ', ') as failed_courses"))
+            ->where('r.score', '<', $passThreshold)
+            ->whereNotNull('r.regno');
+
+        if (!empty($params['acad'])) {
+            $query->where('r.acad', $params['acad']);
+        }
+        if (!empty($params['semester'])) {
+            $query->where('r.semester', $params['semester']);
+        }
+        if (!empty($params['progid'])) {
+            $query->where('r.progid', $params['progid']);
+        }
+        if (!empty($params['studyyear'])) {
+            $query->where('r.studyyear', $params['studyyear']);
+        }
+        if (!empty($params['specialisation_id'])) {
+            $query->where('r.spec_id', $params['specialisation_id']);
+        }
+
+        $results = $query
+            ->groupBy('r.regno', 's.entryno', 's.othername', 's.firstname', 's.gender', 'r.progid')
+            ->orderBy('studname')
+            ->get();
+
+        // Apply range limit
+        if (!empty($params['start_range']) && !empty($params['end_range'])) {
+            $start = $params['start_range'] - 1;
+            $end = $params['end_range'];
+            $results = $results->slice($start, $end - $start)->values();
+        }
+
+        return $results;
+    }
+
+    /**
+     * Generate summary PDF
+     */
+    private function generateSummaryPDF($title, $students, $export)
+    {
+        $params = $this->getExportParams($export);
+        
+        $pdf = Pdf::loadView('admin.results.pdf-template', compact('title', 'students', 'params', 'export'));
+        
+        $pdf->setPaper('A4', 'portrait');
+        
+        $filename = str_replace(' ', '_', $title) . '_' . $export->export_name . '_' . date('Y-m-d') . '.pdf';
+        
+        return $pdf->stream($filename);
     }
 }
