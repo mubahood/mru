@@ -1170,6 +1170,7 @@ class ComposerStaticInit639dbf05c48ac73280c80f3691363d96
         'App\\Services\\MruAcademicResultPdfService' => __DIR__ . '/../..' . '/app/Services/MruAcademicResultPdfService.php',
         'App\\Services\\OnboardingProgressService' => __DIR__ . '/../..' . '/app/Services/OnboardingProgressService.php',
         'App\\Services\\PaymentProcessingService' => __DIR__ . '/../..' . '/app/Services/PaymentProcessingService.php',
+        'App\\Services\\SpecializationCurriculumPdfService' => __DIR__ . '/../..' . '/app/Services/SpecializationCurriculumPdfService.php',
         'App\\Services\\StudentTranscriptPdfService' => __DIR__ . '/../..' . '/app/Services/StudentTranscriptPdfService.php',
         'App\\Services\\StudentTranscriptService' => __DIR__ . '/../..' . '/app/Services/StudentTranscriptService.php',
         'App\\Traits\\ApiResponser' => __DIR__ . '/../..' . '/app/Traits/ApiResponser.php',

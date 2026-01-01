@@ -63,6 +63,21 @@ return [
             ]) : [],
         ],
 
+        'remote_mysql' => [
+            'driver' => 'mysql',
+            'host' => env('REMOTE_DB_HOST', '137.63.185.93'),
+            'port' => env('REMOTE_DB_PORT', '3306'),
+            'database' => env('REMOTE_DB_DATABASE', 'campus_dynamics'),
+            'username' => env('REMOTE_DB_USERNAME', 'dbmanager'),
+            'password' => env('REMOTE_DB_PASSWORD', ''),
+            'charset' => 'utf8mb4',
+            'collation' => 'utf8mb4_unicode_ci',
+            'prefix' => '',
+            'prefix_indexes' => true,
+            'strict' => false,
+            'engine' => 'InnoDB',
+        ],
+
         'pgsql' => [
             'driver' => 'pgsql',
             'url' => env('DATABASE_URL'),

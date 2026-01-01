@@ -13,6 +13,7 @@ use App\Http\Controllers\ReportCardsPrintingController;
 use App\Http\Controllers\SitemapController;
 use App\Http\Controllers\StudentSemesterEnrollmentController;
 use App\Http\Controllers\ProgrammeCurriculumPdfController;
+use App\Http\Controllers\RemoteSyncController;
 use App\Models\AcademicClass;
 use App\Models\AcademicClassFee;
 use App\Models\Account;
@@ -2228,6 +2229,19 @@ Route::get('termly-report', function (Request $r) {
   /*
   http://localhost/schools/generate-report-card?id=10963
   */
+});
+
+// Remote Database Sync Routes
+Route::prefix('sync')->middleware(['web'])->group(function () {
+    Route::get('/', [RemoteSyncController::class, 'index'])->name('sync.index');
+    Route::get('/{id}', [RemoteSyncController::class, 'show'])->name('sync.show');
+    Route::get('/{id}/monitor', [RemoteSyncController::class, 'monitor'])->name('sync.monitor');
+    Route::post('/{id}/process', [RemoteSyncController::class, 'process'])->name('sync.process');
+    Route::get('/{id}/status', [RemoteSyncController::class, 'status'])->name('sync.status');
+    Route::post('/sync', [RemoteSyncController::class, 'sync'])->name('sync.sync');
+    Route::post('/test-connection', [RemoteSyncController::class, 'testConnection'])->name('sync.test-connection');
+    Route::get('/statistics', [RemoteSyncController::class, 'statistics'])->name('sync.statistics');
+    Route::delete('/{id}', [RemoteSyncController::class, 'destroy'])->name('sync.destroy');
 });
 
 Route::get('/', function (Request $request) {

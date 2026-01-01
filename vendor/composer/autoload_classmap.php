@@ -465,6 +465,7 @@ return array(
     'App\\Services\\MruAcademicResultPdfService' => $baseDir . '/app/Services/MruAcademicResultPdfService.php',
     'App\\Services\\OnboardingProgressService' => $baseDir . '/app/Services/OnboardingProgressService.php',
     'App\\Services\\PaymentProcessingService' => $baseDir . '/app/Services/PaymentProcessingService.php',
+    'App\\Services\\SpecializationCurriculumPdfService' => $baseDir . '/app/Services/SpecializationCurriculumPdfService.php',
     'App\\Services\\StudentTranscriptPdfService' => $baseDir . '/app/Services/StudentTranscriptPdfService.php',
     'App\\Services\\StudentTranscriptService' => $baseDir . '/app/Services/StudentTranscriptService.php',
     'App\\Traits\\ApiResponser' => $baseDir . '/app/Traits/ApiResponser.php',

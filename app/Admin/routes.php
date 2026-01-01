@@ -17,10 +17,11 @@ Route::group([
     // MRU API Endpoints
     $router->get('api/courses-by-specialization', 'MruSpecializationHasCourseController@getCoursesBySpecialization');
 
+    $router->resource('remote-database-syncs-admin', RemoteDataBaseSyncController::class);
     $router->resource('mru-results', MruResultController::class);
     $router->resource('mru-faculties', MruFacultyController::class);
     $router->resource('mru-programmes', MruProgrammeController::class);
-    
+
     // MRU Specialization - Curriculum Generation (MUST be before resource route)
     $router->get('mru-specialisations/{id}/generate-curriculum', 'MruSpecialisationController@generateCurriculum')
         ->name('mru-specialisations.generate-curriculum');
@@ -28,7 +29,7 @@ Route::group([
         ->name('mru-specialisations.process-generate-curriculum');
     $router->get('mru-specialisations/{id}/curriculum-pdf', 'MruSpecialisationController@curriculumPdf')
         ->name('mru-specialisations.curriculum-pdf');
-    
+
     $router->resource('mru-specialisations', MruSpecialisationController::class);
     $router->resource('mru-specialization-courses', MruSpecializationHasCourseController::class);
     $router->resource('mru-temp-specialization-courses', TempMruSpecializationHasCourseController::class);
@@ -44,7 +45,7 @@ Route::group([
     $router->resource('mru-academic-years', MruAcademicYearController::class);
     $router->resource('mru-semesters', MruSemesterController::class);
     $router->resource('mru-student-semester-enrollments', MruStudentSemesterEnrollmentController::class);
-    
+
     // MRU Marks & Exam System
     $router->resource('mru-exam-results-faculty', MruExamResultFacultyController::class);
     $router->resource('mru-coursework-marks', MruCourseworkMarkController::class);
