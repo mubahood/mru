@@ -242,12 +242,7 @@ class RemoteDataBaseSyncController extends AdminController
             ->required()
             ->help('Select the remote database table to sync (only tables with transformation logic are shown)');
         
-        $form->number('range_limit', __('Batch Size'))
-            ->default(1000)
-            ->min(100)
-            ->max(10000)
-            ->required()
-            ->help('Number of records to process per batch (recommended: 1000-5000)');
+        $form->decimal('range_limit', __('Batch Size'));
         
         $form->divider('Optional Configuration');
         
