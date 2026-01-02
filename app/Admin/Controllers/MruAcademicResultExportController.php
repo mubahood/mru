@@ -56,6 +56,7 @@ class MruAcademicResultExportController extends AdminController
                 'html' => 'info',
                 'both' => 'primary',
             ])
+            ->hide()
             ->sortable();
 
         $grid->column('academic_year', __('Year'))->sortable();
@@ -72,6 +73,7 @@ class MruAcademicResultExportController extends AdminController
                 $color = $colors[$year] ?? 'secondary';
                 return "<span class='badge badge-{$color}'>Y{$year}</span>";
             })
+            ->hide()
             ->sortable();
 
         $grid->column('programme_id', __('Programme'))
@@ -109,6 +111,7 @@ class MruAcademicResultExportController extends AdminController
                 'completed' => 'success',
                 'failed' => 'danger',
             ])
+            ->hide()
             ->sortable();
 
         $grid->column('created_by', __('Created By'))
