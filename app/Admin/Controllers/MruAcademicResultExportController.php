@@ -496,7 +496,7 @@ class MruAcademicResultExportController extends AdminController
         $params = $this->getExportParams($export);
         
         // Get incomplete cases first - these should be excluded from all other categories
-        $incompleteCases = $this->getIncompleteCases($params);
+        $incompleteCases = $this->getIncompleteCases($params, $export);
         $incompleteRegnos = $incompleteCases->pluck('regno')->toArray();
         
         // Get performance lists - excluding incomplete students
@@ -759,11 +759,18 @@ class MruAcademicResultExportController extends AdminController
 
     /**
      * Get incomplete cases - students with fewer course registrations than expected
-     * Simple count-based check: if student has less than total courses, mark incomplete
+     * Uses minimum_passes_required from export configuration as expected count
      */
-    private function getIncompleteCases($params)
+    private function getIncompleteCases($params, $export)
     {
-        // First, get all courses for this export configuration to know the expected total
+        // Use the expected course count from export configuration
+        $expectedCourseCount = $export->minimum_passes_required ?? 0;
+        
+        if ($expectedCourseCount == 0) {
+            return collect([]);
+        }
+
+        // Get all courses for this export configuration (for reference)
         $coursesQuery = DB::table('acad_results')
             ->select('courseid')
             ->distinct();
@@ -785,13 +792,8 @@ class MruAcademicResultExportController extends AdminController
         }
 
         $allCourses = $coursesQuery->pluck('courseid')->toArray();
-        $totalCourses = count($allCourses);
 
-        if ($totalCourses == 0) {
-            return collect([]);
-        }
-
-        // Get all students with their course count (ANY courses, not just specific ones)
+        // Get all students with their course count (total registrations, not unique courses)
         $studentsQuery = DB::table('acad_results as r')
             ->join('acad_student as s', 's.regno', '=', 'r.regno')
             ->select(
@@ -800,7 +802,7 @@ class MruAcademicResultExportController extends AdminController
                 DB::raw("CONCAT(s.othername, ' ', s.firstname) as studname"),
                 's.gender',
                 'r.progid',
-                DB::raw('COUNT(DISTINCT r.courseid) as courses_count'),
+                DB::raw('COUNT(r.courseid) as courses_count'),
                 DB::raw("GROUP_CONCAT(DISTINCT r.courseid ORDER BY r.courseid SEPARATOR ', ') as registered_courses")
             )
             ->whereNotNull('r.regno');
@@ -821,10 +823,10 @@ class MruAcademicResultExportController extends AdminController
             $studentsQuery->where('r.spec_id', $params['specialisation_id']);
         }
 
-        // Simply check if count of ANY courses < expected total
+        // Check if total count of registrations < expected count from configuration
         $students = $studentsQuery
             ->groupBy('r.regno', 's.entryno', 's.othername', 's.firstname', 's.gender', 'r.progid')
-            ->havingRaw('COUNT(DISTINCT r.courseid) < ?', [$totalCourses])
+            ->havingRaw('COUNT(r.courseid) < ?', [$expectedCourseCount])
             ->orderBy('studname')
             ->get();
 
