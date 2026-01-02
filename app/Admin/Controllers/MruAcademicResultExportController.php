@@ -495,17 +495,20 @@ class MruAcademicResultExportController extends AdminController
         $export = MruAcademicResultExport::findOrFail($id);
         $params = $this->getExportParams($export);
         
-        // Get all lists
-        $vcList = $this->getPerformanceList(4.40, 5.00, $params);
-        $deansList = $this->getPerformanceList(4.00, 4.39, $params);
+        // Get incomplete cases first - these should be excluded from all other categories
+        $incompleteCases = $this->getIncompleteCases($params);
+        $incompleteRegnos = $incompleteCases->pluck('regno')->toArray();
         
-        // Get regno lists to exclude from pass cases
+        // Get performance lists - excluding incomplete students
+        $vcList = $this->getPerformanceList(4.40, 5.00, $params, $incompleteRegnos);
+        $deansList = $this->getPerformanceList(4.00, 4.39, $params, $incompleteRegnos);
+        
+        // Get regno lists to exclude from pass cases (VC + Dean + Incomplete)
         $vcRegnos = $vcList->pluck('regno')->toArray();
         $deansRegnos = $deansList->pluck('regno')->toArray();
-        $excludeRegnos = array_merge($vcRegnos, $deansRegnos);
+        $excludeRegnos = array_merge($vcRegnos, $deansRegnos, $incompleteRegnos);
         
         $passCases = $this->getPassCases($params, $excludeRegnos);
-        $incompleteCases = $this->getIncompleteCases($params);
         $haltedCases = $this->getHaltedCases($params);
         $retakeCases = $this->getRetakeCases($params);
         
@@ -611,7 +614,7 @@ class MruAcademicResultExportController extends AdminController
     /**
      * Get performance list (VC/Dean) with CGPA calculation
      */
-    private function getPerformanceList($cgpaMin, $cgpaMax, $params)
+    private function getPerformanceList($cgpaMin, $cgpaMax, $params, $excludeRegnos = [])
     {
         $query = DB::table('acad_results as r')
             ->join('acad_student as s', 's.regno', '=', 'r.regno')
@@ -627,6 +630,11 @@ class MruAcademicResultExportController extends AdminController
             )
             ->whereNotNull('r.regno')
             ->groupBy('r.regno', 's.entryno', 's.othername', 's.firstname', 's.gender', 'r.progid');
+
+        // Exclude specified students (e.g., incomplete students)
+        if (!empty($excludeRegnos)) {
+            $query->whereNotIn('r.regno', $excludeRegnos);
+        }
 
         // Apply filters from export configuration
         if (!empty($params['acad'])) {
