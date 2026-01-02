@@ -758,12 +758,12 @@ class MruAcademicResultExportController extends AdminController
     }
 
     /**
-     * Get incomplete cases - students with fewer courses than expected
-     * Following the same logic as detailed export PDF
+     * Get incomplete cases - students with fewer course registrations than expected
+     * Simple count-based check: if student has less than total courses, mark incomplete
      */
     private function getIncompleteCases($params)
     {
-        // First, get all courses for this export configuration
+        // First, get all courses for this export configuration to know the expected total
         $coursesQuery = DB::table('acad_results')
             ->select('courseid')
             ->distinct();
@@ -791,7 +791,7 @@ class MruAcademicResultExportController extends AdminController
             return collect([]);
         }
 
-        // Get all students with their course count
+        // Get all students with their course count (ANY courses, not just specific ones)
         $studentsQuery = DB::table('acad_results as r')
             ->join('acad_student as s', 's.regno', '=', 'r.regno')
             ->select(
@@ -821,13 +821,14 @@ class MruAcademicResultExportController extends AdminController
             $studentsQuery->where('r.spec_id', $params['specialisation_id']);
         }
 
+        // Simply check if count of ANY courses < expected total
         $students = $studentsQuery
             ->groupBy('r.regno', 's.entryno', 's.othername', 's.firstname', 's.gender', 'r.progid')
             ->havingRaw('COUNT(DISTINCT r.courseid) < ?', [$totalCourses])
             ->orderBy('studname')
             ->get();
 
-        // Add incomplete courses info (which courses they're missing)
+        // Add incomplete courses info (which courses from expected list they're missing)
         foreach ($students as $student) {
             $registeredCourses = explode(', ', $student->registered_courses);
             $missingCourses = array_diff($allCourses, $registeredCourses);
