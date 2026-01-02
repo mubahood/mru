@@ -750,95 +750,90 @@ class MruAcademicResultExportController extends AdminController
     }
 
     /**
-     * Get incomplete cases - students with incomplete results
-     * Simplified approach: any student with at least one course that has NULL or empty score
+     * Get incomplete cases - students with fewer courses than expected
+     * Following the same logic as detailed export PDF
      */
     private function getIncompleteCases($params)
     {
-        // Get all students in the current filters
-        $baseQuery = DB::table('acad_results as r')
-            ->whereNotNull('r.regno');
+        // First, get all courses for this export configuration
+        $coursesQuery = DB::table('acad_results')
+            ->select('courseid')
+            ->distinct();
 
         if (!empty($params['acad'])) {
-            $baseQuery->where('r.acad', $params['acad']);
+            $coursesQuery->where('acad', $params['acad']);
         }
         if (!empty($params['semester'])) {
-            $baseQuery->where('r.semester', $params['semester']);
+            $coursesQuery->where('semester', $params['semester']);
         }
         if (!empty($params['progid'])) {
-            $baseQuery->where('r.progid', $params['progid']);
+            $coursesQuery->where('progid', $params['progid']);
         }
         if (!empty($params['studyyear'])) {
-            $baseQuery->where('r.studyyear', $params['studyyear']);
+            $coursesQuery->where('studyyear', $params['studyyear']);
         }
         if (!empty($params['specialisation_id'])) {
-            $baseQuery->where('r.spec_id', $params['specialisation_id']);
+            $coursesQuery->where('spec_id', $params['specialisation_id']);
         }
 
-        // Get list of students with incomplete marks (NULL or empty score)
-        $incompleteRegnos = (clone $baseQuery)
-            ->where(function($q) {
-                $q->whereNull('r.score')
-                  ->orWhere('r.score', '')
-                  ->orWhere('r.score', '=', '0');
-            })
-            ->distinct()
-            ->pluck('r.regno')
-            ->toArray();
+        $allCourses = $coursesQuery->pluck('courseid')->toArray();
+        $totalCourses = count($allCourses);
 
-        if (empty($incompleteRegnos)) {
+        if ($totalCourses == 0) {
             return collect([]);
         }
 
-        // Now get full details with course list
-        $query = DB::table('acad_results as r')
+        // Get all students with their course count
+        $studentsQuery = DB::table('acad_results as r')
             ->join('acad_student as s', 's.regno', '=', 'r.regno')
             ->select(
-                'r.regno', 
-                's.entryno', 
+                'r.regno',
+                's.entryno',
                 DB::raw("CONCAT(s.othername, ' ', s.firstname) as studname"),
-                's.gender', 
+                's.gender',
                 'r.progid',
-                DB::raw("GROUP_CONCAT(
-                    DISTINCT CASE 
-                        WHEN r.score IS NULL OR r.score = '' OR r.score = '0' 
-                        THEN r.courseid 
-                    END 
-                    ORDER BY r.courseid 
-                    SEPARATOR ', '
-                ) as incomplete_courses")
+                DB::raw('COUNT(DISTINCT r.courseid) as courses_count'),
+                DB::raw("GROUP_CONCAT(DISTINCT r.courseid ORDER BY r.courseid SEPARATOR ', ') as registered_courses")
             )
-            ->whereIn('r.regno', $incompleteRegnos);
+            ->whereNotNull('r.regno');
 
         if (!empty($params['acad'])) {
-            $query->where('r.acad', $params['acad']);
+            $studentsQuery->where('r.acad', $params['acad']);
         }
         if (!empty($params['semester'])) {
-            $query->where('r.semester', $params['semester']);
+            $studentsQuery->where('r.semester', $params['semester']);
         }
         if (!empty($params['progid'])) {
-            $query->where('r.progid', $params['progid']);
+            $studentsQuery->where('r.progid', $params['progid']);
         }
         if (!empty($params['studyyear'])) {
-            $query->where('r.studyyear', $params['studyyear']);
+            $studentsQuery->where('r.studyyear', $params['studyyear']);
         }
         if (!empty($params['specialisation_id'])) {
-            $query->where('r.spec_id', $params['specialisation_id']);
+            $studentsQuery->where('r.spec_id', $params['specialisation_id']);
         }
 
-        $results = $query
+        $students = $studentsQuery
             ->groupBy('r.regno', 's.entryno', 's.othername', 's.firstname', 's.gender', 'r.progid')
+            ->havingRaw('COUNT(DISTINCT r.courseid) < ?', [$totalCourses])
             ->orderBy('studname')
             ->get();
+
+        // Add incomplete courses info (which courses they're missing)
+        foreach ($students as $student) {
+            $registeredCourses = explode(', ', $student->registered_courses);
+            $missingCourses = array_diff($allCourses, $registeredCourses);
+            $student->incomplete_courses = implode(', ', $missingCourses);
+        }
 
         // Apply range limit
         if (!empty($params['start_range']) && !empty($params['end_range'])) {
             $start = $params['start_range'] - 1;
             $end = $params['end_range'];
-            $results = $results->slice($start, $end - $start)->values();
+            $students = $students->slice($start, $end - $start)->values();
         }
 
-        return $results;
+        return $students;
     }
 
     /**

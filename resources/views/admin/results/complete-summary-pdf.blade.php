@@ -451,11 +451,11 @@
     </div>
     
     <div style="margin: 8px 0; font-size: 8pt; line-height: 1.4; text-align: justify;">
-        The following students have <strong>INCOMPLETE</strong> results due to missing scores or grades for the courses indicated.
+        The following students have <strong>INCOMPLETE</strong> results - they are registered for fewer courses than the total courses in this export.
     </div>
     
     <div class="criteria-box">
-        <strong>Status:</strong> Students with incomplete examination results - Course codes separated by commas
+        <strong>Status:</strong> Students with fewer registered courses than expected - Missing course codes listed
     </div>
 
     @if(count($incompleteCases) > 0)
@@ -468,7 +468,7 @@
                 <th style="width: 24%">STUDENT NAME</th>
                 <th style="width: 7%">GENDER</th>
                 <th style="width: 10%">PROGRAMME</th>
-                <th style="width: 33%">INCOMPLETE COURSES</th>
+                <th style="width: 33%">MISSING COURSES</th>
             </tr>
         </thead>
         <tbody>
