@@ -505,9 +505,15 @@ class MruAcademicResultExportController extends AdminController
         $excludeRegnos = array_merge($vcRegnos, $deansRegnos);
         
         $passCases = $this->getPassCases($params, $excludeRegnos);
-        $retakeCases = $this->getRetakeCases($params);
         $incompleteCases = $this->getIncompleteCases($params);
         $haltedCases = $this->getHaltedCases($params);
+        $retakeCases = $this->getRetakeCases($params);
+        
+        // Debug log to check incomplete cases
+        \Log::info('Incomplete Cases Count: ' . count($incompleteCases));
+        if (count($incompleteCases) > 0) {
+            \Log::info('Sample Incomplete: ' . json_encode($incompleteCases->first()));
+        }
         
         $data = [
             'export' => $export,
@@ -515,9 +521,9 @@ class MruAcademicResultExportController extends AdminController
             'vcList' => $vcList,
             'deansList' => $deansList,
             'passCases' => $passCases,
-            'retakeCases' => $retakeCases,
             'incompleteCases' => $incompleteCases,
             'haltedCases' => $haltedCases,
+            'retakeCases' => $retakeCases,
         ];
         
         $pdf = Pdf::loadView('admin.results.complete-summary-pdf', $data);
@@ -745,10 +751,46 @@ class MruAcademicResultExportController extends AdminController
 
     /**
      * Get incomplete cases - students with incomplete results
+     * Simplified approach: any student with at least one course that has NULL or empty score
      */
     private function getIncompleteCases($params)
     {
-        // Optimized query to get students with incomplete marks
+        // Get all students in the current filters
+        $baseQuery = DB::table('acad_results as r')
+            ->whereNotNull('r.regno');
+
+        if (!empty($params['acad'])) {
+            $baseQuery->where('r.acad', $params['acad']);
+        }
+        if (!empty($params['semester'])) {
+            $baseQuery->where('r.semester', $params['semester']);
+        }
+        if (!empty($params['progid'])) {
+            $baseQuery->where('r.progid', $params['progid']);
+        }
+        if (!empty($params['studyyear'])) {
+            $baseQuery->where('r.studyyear', $params['studyyear']);
+        }
+        if (!empty($params['specialisation_id'])) {
+            $baseQuery->where('r.spec_id', $params['specialisation_id']);
+        }
+
+        // Get list of students with incomplete marks (NULL or empty score)
+        $incompleteRegnos = (clone $baseQuery)
+            ->where(function($q) {
+                $q->whereNull('r.score')
+                  ->orWhere('r.score', '')
+                  ->orWhere('r.score', '=', '0');
+            })
+            ->distinct()
+            ->pluck('r.regno')
+            ->toArray();
+
+        if (empty($incompleteRegnos)) {
+            return collect([]);
+        }
+
+        // Now get full details with course list
         $query = DB::table('acad_results as r')
             ->join('acad_student as s', 's.regno', '=', 'r.regno')
             ->select(
@@ -757,24 +799,16 @@ class MruAcademicResultExportController extends AdminController
                 DB::raw("CONCAT(s.othername, ' ', s.firstname) as studname"),
                 's.gender', 
                 'r.progid',
-                DB::raw("GROUP_CONCAT(DISTINCT r.courseid ORDER BY r.courseid SEPARATOR ', ') as incomplete_courses")
+                DB::raw("GROUP_CONCAT(
+                    DISTINCT CASE 
+                        WHEN r.score IS NULL OR r.score = '' OR r.score = '0' 
+                        THEN r.courseid 
+                    END 
+                    ORDER BY r.courseid 
+                    SEPARATOR ', '
+                ) as incomplete_courses")
             )
-            ->where(function($q) {
-                $q->where(function($subQ) {
-                    // Missing score or invalid score
-                    $subQ->whereNull('r.score')
-                         ->orWhere('r.score', '')
-                         ->orWhere('r.score', 0);
-                })->orWhere(function($subQ) {
-                    // Missing grade or invalid grade
-                    $subQ->whereNull('r.grade')
-                         ->orWhere('r.grade', '')
-                         ->orWhere('r.grade', 'X')
-                         ->orWhere('r.grade', 'I');
-                });
-            })
-            ->whereNotNull('r.regno')
-            ->whereNotNull('r.courseid');
+            ->whereIn('r.regno', $incompleteRegnos);
 
         if (!empty($params['acad'])) {
             $query->where('r.acad', $params['acad']);
