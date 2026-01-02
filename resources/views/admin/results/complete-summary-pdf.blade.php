@@ -315,6 +315,10 @@
         <span class="count">{{ count($vcList) }} Students</span>
     </div>
     
+    <div style="margin: 8px 0; font-size: 8pt; line-height: 1.4; text-align: justify;">
+        The following students obtained a CGPA between <strong>4.40</strong> and <strong>5.00</strong>.
+    </div>
+    
     <div class="criteria-box">
         <strong>Criteria:</strong> Students with Cumulative Grade Point Average (CGPA) between <strong>4.40 and 5.00</strong>
     </div>
@@ -354,6 +358,10 @@
     <div class="section-header">
         DEAN'S LIST
         <span class="count">{{ count($deansList) }} Students</span>
+    </div>
+    
+    <div style="margin: 8px 0; font-size: 8pt; line-height: 1.4; text-align: justify;">
+        The following students obtained a CGPA between <strong>4.00</strong> and <strong>4.39</strong>.
     </div>
     
     <div class="criteria-box">
@@ -397,6 +405,10 @@
         <span class="count">{{ count($passCases) }} Students</span>
     </div>
     
+    <div style="margin: 8px 0; font-size: 8pt; line-height: 1.4; text-align: justify;">
+        The following candidates, whose registration numbers appear below, <strong>PASSED</strong> their semester examinations and were recommended to proceed subject to the approval of the <strong>SENATE Examination Board</strong>.
+    </div>
+    
     <div class="criteria-box">
         <strong>Criteria:</strong> Students who passed all courses - Score ≥ 50 (Undergraduate) or ≥ 60 (Postgraduate)
     </div>
@@ -434,6 +446,10 @@
     <div class="section-header">
         RETAKE CASES - FAILED COURSES
         <span class="count">{{ count($retakeCases) }} Students</span>
+    </div>
+    
+    <div style="margin: 8px 0; font-size: 8pt; line-height: 1.4; text-align: justify;">
+        The following candidates were recommended to <strong>RETAKE</strong> the papers indicated against their registration numbers when next offered, subject to the approval of the <strong>SENATE Examination Board</strong>.
     </div>
     
     <div class="criteria-box">

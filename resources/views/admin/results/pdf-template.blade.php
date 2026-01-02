@@ -153,7 +153,7 @@
     @endif
 
     <!-- Report Title Section -->
-    <div style="background: #1a5490; padding: 8px; margin-bottom: 12px;">
+    <div style="background: #1a5490; padding: 8px; margin-bottom: 8px;">
         <div style="font-size: 9pt; font-weight: 600; color: #fff; margin-bottom: 3px;">{{ $title }}</div>
         <div style="font-size: 7pt; color: #f0f4f8;">
             @if(str_contains($title, "VC's List"))
@@ -166,6 +166,19 @@
                 Students Requiring Course Retakes
             @endif
         </div>
+    </div>
+
+    <!-- Official Narration -->
+    <div style="margin: 8px 0; padding: 6px 8px; background: #fff9e6; border-left: 3px solid #1a5490; font-size: 7.5pt; line-height: 1.4; text-align: justify;">
+        @if(str_contains($title, "VC's List"))
+            The following students obtained a CGPA between <strong>4.40</strong> and <strong>5.00</strong>.
+        @elseif(str_contains($title, "Dean's List"))
+            The following students obtained a CGPA between <strong>4.00</strong> and <strong>4.39</strong>.
+        @elseif(str_contains($title, 'Pass'))
+            The following candidates, whose registration numbers appear below, <strong>PASSED</strong> their semester examinations and were recommended to proceed subject to the approval of the <strong>SENATE Examination Board</strong>.
+        @elseif(str_contains($title, 'Retake'))
+            The following candidates were recommended to <strong>RETAKE</strong> the papers indicated against their registration numbers when next offered, subject to the approval of the <strong>SENATE Examination Board</strong>.
+        @endif
     </div>
 
     <!-- Summary -->
