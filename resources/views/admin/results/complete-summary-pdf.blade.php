@@ -311,7 +311,7 @@
 
     <!-- VC's List -->
     <div class="section-header">
-        VICE CHANCELLOR'S LIST
+        VICE CHANCELLOR'S LIST (FIRST CLASS)
         <span class="count">{{ count($vcList) }} Students</span>
     </div>
     
@@ -356,7 +356,7 @@
 
     <!-- Dean's List -->
     <div class="section-header">
-        DEAN'S LIST
+        DEAN'S LIST (SECOND CLASS UPPER DIVISION)
         <span class="count">{{ count($deansList) }} Students</span>
     </div>
     
@@ -401,7 +401,7 @@
 
     <!-- Pass Cases -->
     <div class="section-header">
-        PASS CASES - NORMAL PROGRESS
+        SECOND CLASS LOWER DIVISION
         <span class="count">{{ count($passCases) }} Students</span>
     </div>
     
@@ -418,11 +418,12 @@
         <thead>
             <tr>
                 <th style="width: 5%">#</th>
-                <th style="width: 16%">REG. NO</th>
-                <th style="width: 16%">ENTRY NO</th>
-                <th style="width: 43%">STUDENT NAME</th>
-                <th style="width: 10%">GENDER</th>
-                <th style="width: 10%">PROGRAMME</th>
+                <th style="width: 13%">REG. NO</th>
+                <th style="width: 13%">ENTRY NO</th>
+                <th style="width: 35%">STUDENT NAME</th>
+                <th style="width: 8%">GENDER</th>
+                <th style="width: 10%">CGPA</th>
+                <th style="width: 16%">PROGRAMME</th>
             </tr>
         </thead>
         <tbody>
@@ -433,6 +434,7 @@
                 <td class="center">{{ $student->entryno ?? '-' }}</td>
                 <td class="name">{{ $student->studname }}</td>
                 <td class="center">{{ $student->gender ?? '-' }}</td>
+                <td class="cgpa">{{ isset($student->cgpa) ? number_format($student->cgpa, 2) : '-' }}</td>
                 <td class="center">{{ $student->progid }}</td>
             </tr>
             @endforeach
@@ -442,9 +444,99 @@
     <div class="no-data">No students in this category</div>
     @endif
 
+    <!-- Incomplete Cases -->
+    <div class="section-header">
+        INCOMPLETE
+        <span class="count">{{ count($incompleteCases) }} Students</span>
+    </div>
+    
+    <div style="margin: 8px 0; font-size: 8pt; line-height: 1.4; text-align: justify;">
+        The following students have <strong>INCOMPLETE</strong> results due to missing scores or grades.
+    </div>
+    
+    <div class="criteria-box">
+        <strong>Status:</strong> Students with incomplete examination results
+    </div>
+
+    @if(count($incompleteCases) > 0)
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th style="width: 4%">#</th>
+                <th style="width: 12%">REG. NO</th>
+                <th style="width: 12%">ENTRY NO</th>
+                <th style="width: 27%">STUDENT NAME</th>
+                <th style="width: 7%">GENDER</th>
+                <th style="width: 11%">PROGRAMME</th>
+                <th style="width: 27%">INCOMPLETE COURSES</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach($incompleteCases as $index => $student)
+            <tr>
+                <td class="number">{{ $index + 1 }}</td>
+                <td class="regno">{{ $student->regno }}</td>
+                <td class="center">{{ $student->entryno ?? '-' }}</td>
+                <td class="name">{{ $student->studname }}</td>
+                <td class="center">{{ $student->gender ?? '-' }}</td>
+                <td class="center">{{ $student->progid }}</td>
+                <td class="failed">{{ $student->incomplete_courses ?? 'N/A' }}</td>
+            </tr>
+            @endforeach
+        </tbody>
+    </table>
+    @else
+    <div class="no-data">No students with incomplete results</div>
+    @endif
+
+    <!-- Halted Cases -->
+    <div class="section-header">
+        HALTED
+        <span class="count">{{ count($haltedCases) }} Students</span>
+    </div>
+    
+    <div style="margin: 8px 0; font-size: 8pt; line-height: 1.4; text-align: justify;">
+        The following students have been <strong>HALTED</strong> as their number of retake courses exceeds the maximum semester load.
+    </div>
+    
+    <div class="criteria-box">
+        <strong>Status:</strong> Students with retake courses exceeding maximum semester load (6 courses)
+    </div>
+
+    @if(count($haltedCases) > 0)
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th style="width: 4%">#</th>
+                <th style="width: 12%">REG. NO</th>
+                <th style="width: 12%">ENTRY NO</th>
+                <th style="width: 27%">STUDENT NAME</th>
+                <th style="width: 7%">GENDER</th>
+                <th style="width: 11%">PROGRAMME</th>
+                <th style="width: 27%">FAILED COURSES</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach($haltedCases as $index => $student)
+            <tr>
+                <td class="number">{{ $index + 1 }}</td>
+                <td class="regno">{{ $student->regno }}</td>
+                <td class="center">{{ $student->entryno ?? '-' }}</td>
+                <td class="name">{{ $student->studname }}</td>
+                <td class="center">{{ $student->gender ?? '-' }}</td>
+                <td class="center">{{ $student->progid }}</td>
+                <td class="failed">{{ $student->failed_courses }}</td>
+            </tr>
+            @endforeach
+        </tbody>
+    </table>
+    @else
+    <div class="no-data">No halted students</div>
+    @endif
+
     <!-- Retake Cases -->
     <div class="section-header">
-        RETAKE CASES - FAILED COURSES
+        RETAKE CASES (PASS DEGREE)
         <span class="count">{{ count($retakeCases) }} Students</span>
     </div>
     
@@ -492,9 +584,11 @@
         <strong>OVERALL SUMMARY:</strong> 
         VC's List: <strong>{{ count($vcList) }}</strong> | 
         Dean's List: <strong>{{ count($deansList) }}</strong> | 
-        Pass Cases: <strong>{{ count($passCases) }}</strong> | 
+        Second Class Lower: <strong>{{ count($passCases) }}</strong> | 
+        Incomplete: <strong>{{ count($incompleteCases) }}</strong> | 
+        Halted: <strong>{{ count($haltedCases) }}</strong> | 
         Retake Cases: <strong>{{ count($retakeCases) }}</strong> | 
-        TOTAL STUDENTS: <strong>{{ count($vcList) + count($deansList) + count($passCases) + count($retakeCases) }}</strong>
+        TOTAL: <strong>{{ count($vcList) + count($deansList) + count($passCases) + count($incompleteCases) + count($haltedCases) + count($retakeCases) }}</strong>
     </div>
     
     <!-- Report Footer -->

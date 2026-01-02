@@ -383,7 +383,7 @@
             <div class="report-card vc" onclick="generateReport('vc-list')">
                 <div class="icon"><i class="fa fa-trophy"></i></div>
                 <h3>VC's List</h3>
-                <div class="subtitle">Vice Chancellor's Honor List</div>
+                <div class="subtitle">Vice Chancellor's Honor List<br>(First Class)</div>
                 <div class="criteria">CGPA: 4.40 - 5.00</div>
                 <button class="btn-generate">
                     <i class="fa fa-download"></i> Generate PDF
@@ -394,7 +394,7 @@
             <div class="report-card dean" onclick="generateReport('deans-list')">
                 <div class="icon"><i class="fa fa-star"></i></div>
                 <h3>Dean's List</h3>
-                <div class="subtitle">Dean's Honor List</div>
+                <div class="subtitle">Dean's Honor List<br>(Second Class Upper Division)</div>
                 <div class="criteria">CGPA: 4.00 - 4.39</div>
                 <button class="btn-generate">
                     <i class="fa fa-download"></i> Generate PDF
@@ -404,8 +404,8 @@
             <!-- Pass Cases -->
             <div class="report-card pass" onclick="generateReport('pass-cases')">
                 <div class="icon"><i class="fa fa-check-circle"></i></div>
-                <h3>Pass Cases</h3>
-                <div class="subtitle">Normal Progress - All Passed</div>
+                <h3>Second Class Lower</h3>
+                <div class="subtitle">Students Who Passed All Courses<br>(Second Class Lower Division)</div>
                 <div class="criteria">Score ≥ 50 (UG) / ≥ 60 (PG)</div>
                 <button class="btn-generate">
                     <i class="fa fa-download"></i> Generate PDF
@@ -416,7 +416,7 @@
             <div class="report-card retake" onclick="generateReport('retake-cases')">
                 <div class="icon"><i class="fa fa-repeat"></i></div>
                 <h3>Retake Cases</h3>
-                <div class="subtitle">Failed One or More Courses</div>
+                <div class="subtitle">Failed One or More Courses<br>(Pass Degree)</div>
                 <div class="criteria">Score < 50 (UG) / < 60 (PG)</div>
                 <button class="btn-generate">
                     <i class="fa fa-download"></i> Generate PDF

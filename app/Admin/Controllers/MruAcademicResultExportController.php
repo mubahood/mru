@@ -498,8 +498,16 @@ class MruAcademicResultExportController extends AdminController
         // Get all lists
         $vcList = $this->getPerformanceList(4.40, 5.00, $params);
         $deansList = $this->getPerformanceList(4.00, 4.39, $params);
-        $passCases = $this->getPassCases($params);
+        
+        // Get regno lists to exclude from pass cases
+        $vcRegnos = $vcList->pluck('regno')->toArray();
+        $deansRegnos = $deansList->pluck('regno')->toArray();
+        $excludeRegnos = array_merge($vcRegnos, $deansRegnos);
+        
+        $passCases = $this->getPassCases($params, $excludeRegnos);
         $retakeCases = $this->getRetakeCases($params);
+        $incompleteCases = $this->getIncompleteCases($params);
+        $haltedCases = $this->getHaltedCases($params);
         
         $data = [
             'export' => $export,
@@ -508,6 +516,8 @@ class MruAcademicResultExportController extends AdminController
             'deansList' => $deansList,
             'passCases' => $passCases,
             'retakeCases' => $retakeCases,
+            'incompleteCases' => $incompleteCases,
+            'haltedCases' => $haltedCases,
         ];
         
         $pdf = Pdf::loadView('admin.results.complete-summary-pdf', $data);
@@ -553,9 +563,14 @@ class MruAcademicResultExportController extends AdminController
         $export = MruAcademicResultExport::findOrFail($id);
         $params = $this->getExportParams($export);
         
-        $students = $this->getPassCases($params);
+        // Exclude VC and Dean's list students
+        $vcList = $this->getPerformanceList(4.40, 5.00, $params);
+        $deansList = $this->getPerformanceList(4.00, 4.39, $params);
+        $excludeRegnos = array_merge($vcList->pluck('regno')->toArray(), $deansList->pluck('regno')->toArray());
         
-        return $this->generateSummaryPDF('Pass Cases - Normal Progress', $students, $export);
+        $students = $this->getPassCases($params, $excludeRegnos);
+        
+        return $this->generateSummaryPDF('Second Class Lower', $students, $export);
     }
 
     /**
@@ -642,9 +657,9 @@ class MruAcademicResultExportController extends AdminController
     }
 
     /**
-     * Get pass cases - students who passed all courses
+     * Get pass cases - students who passed all courses (Second Class Lower)
      */
-    private function getPassCases($params)
+    private function getPassCases($params, $excludeRegnos = [])
     {
         // Get program level
         $programLevel = null;
@@ -655,11 +670,19 @@ class MruAcademicResultExportController extends AdminController
 
         $passThreshold = ($programLevel && $programLevel >= 4) ? 60 : 50;
 
-        // Get all students
+        // Get all students with CGPA
         $allStudentsQuery = DB::table('acad_results as r')
             ->join('acad_student as s', 's.regno', '=', 'r.regno')
-            ->select('r.regno', 's.entryno', DB::raw("CONCAT(s.othername, ' ', s.firstname) as studname"), 
-                    's.gender', 'r.progid')
+            ->select(
+                'r.regno', 
+                's.entryno', 
+                DB::raw("CONCAT(s.othername, ' ', s.firstname) as studname"), 
+                's.gender', 
+                'r.progid',
+                DB::raw('(SELECT SUM(r2.CreditUnits * r2.gradept) / NULLIF(SUM(r2.CreditUnits), 0) 
+                         FROM acad_results r2 
+                         WHERE r2.regno = r.regno) as cgpa')
+            )
             ->whereNotNull('r.regno');
 
         if (!empty($params['acad'])) {
@@ -700,10 +723,128 @@ class MruAcademicResultExportController extends AdminController
         }
 
         $failedRegnos = $failedStudentsQuery->pluck('regno')->toArray();
+        
+        // Combine failed and excluded regnos
+        $allExcludedRegnos = array_merge($failedRegnos, $excludeRegnos);
 
         $results = $allStudentsQuery
-            ->whereNotIn('r.regno', $failedRegnos)
+            ->whereNotIn('r.regno', $allExcludedRegnos)
             ->groupBy('r.regno', 's.entryno', 's.othername', 's.firstname', 's.gender', 'r.progid')
+            ->orderBy('studname')
+            ->get();
+
+        // Apply range limit
+        if (!empty($params['start_range']) && !empty($params['end_range'])) {
+            $start = $params['start_range'] - 1;
+            $end = $params['end_range'];
+            $results = $results->slice($start, $end - $start)->values();
+        }
+
+        return $results;
+    }
+
+    /**
+     * Get incomplete cases - students with incomplete results
+     */
+    private function getIncompleteCases($params)
+    {
+        $query = DB::table('acad_results as r')
+            ->join('acad_student as s', 's.regno', '=', 'r.regno')
+            ->select(
+                'r.regno', 
+                's.entryno', 
+                DB::raw("CONCAT(s.othername, ' ', s.firstname) as studname"),
+                's.gender', 
+                'r.progid',
+                DB::raw("GROUP_CONCAT(DISTINCT CONCAT(r.courseid, ' (', COALESCE(r.grade, 'N/A'), ')') SEPARATOR ', ') as incomplete_courses")
+            )
+            ->where(function($q) {
+                $q->whereNull('r.score')
+                  ->orWhere('r.score', '')
+                  ->orWhereNull('r.grade')
+                  ->orWhere('r.grade', '');
+            })
+            ->whereNotNull('r.regno');
+
+        if (!empty($params['acad'])) {
+            $query->where('r.acad', $params['acad']);
+        }
+        if (!empty($params['semester'])) {
+            $query->where('r.semester', $params['semester']);
+        }
+        if (!empty($params['progid'])) {
+            $query->where('r.progid', $params['progid']);
+        }
+        if (!empty($params['studyyear'])) {
+            $query->where('r.studyyear', $params['studyyear']);
+        }
+        if (!empty($params['specialisation_id'])) {
+            $query->where('r.spec_id', $params['specialisation_id']);
+        }
+
+        $results = $query
+            ->groupBy('r.regno', 's.entryno', 's.othername', 's.firstname', 's.gender', 'r.progid')
+            ->orderBy('studname')
+            ->get();
+
+        // Apply range limit
+        if (!empty($params['start_range']) && !empty($params['end_range'])) {
+            $start = $params['start_range'] - 1;
+            $end = $params['end_range'];
+            $results = $results->slice($start, $end - $start)->values();
+        }
+
+        return $results;
+    }
+
+    /**
+     * Get halted cases - students whose retake courses exceed maximum semester load
+     */
+    private function getHaltedCases($params)
+    {
+        $programLevel = null;
+        if (!empty($params['progid'])) {
+            $prog = MruProgramme::where('progcode', $params['progid'])->first();
+            $programLevel = $prog ? $prog->proglev : null;
+        }
+
+        $passThreshold = ($programLevel && $programLevel >= 4) ? 60 : 50;
+        $maxSemesterLoad = 6; // Maximum courses per semester
+
+        // Get students with failed courses count
+        $query = DB::table('acad_results as r')
+            ->join('acad_student as s', 's.regno', '=', 'r.regno')
+            ->select(
+                'r.regno', 
+                's.entryno', 
+                DB::raw("CONCAT(s.othername, ' ', s.firstname) as studname"),
+                's.gender', 
+                'r.progid',
+                DB::raw("GROUP_CONCAT(DISTINCT CONCAT(r.courseid, ' (', r.grade, ')') SEPARATOR ', ') as failed_courses"),
+                DB::raw('COUNT(DISTINCT r.courseid) as failed_count')
+            )
+            ->where('r.score', '<', $passThreshold)
+            ->whereNotNull('r.regno');
+
+        if (!empty($params['acad'])) {
+            $query->where('r.acad', $params['acad']);
+        }
+        if (!empty($params['semester'])) {
+            $query->where('r.semester', $params['semester']);
+        }
+        if (!empty($params['progid'])) {
+            $query->where('r.progid', $params['progid']);
+        }
+        if (!empty($params['studyyear'])) {
+            $query->where('r.studyyear', $params['studyyear']);
+        }
+        if (!empty($params['specialisation_id'])) {
+            $query->where('r.spec_id', $params['specialisation_id']);
+        }
+
+        $results = $query
+            ->groupBy('r.regno', 's.entryno', 's.othername', 's.firstname', 's.gender', 'r.progid')
+            ->havingRaw('COUNT(DISTINCT r.courseid) > ?', [$maxSemesterLoad])
             ->orderBy('studname')
             ->get();
 
