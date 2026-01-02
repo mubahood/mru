@@ -451,11 +451,11 @@
     </div>
     
     <div style="margin: 8px 0; font-size: 8pt; line-height: 1.4; text-align: justify;">
-        The following students have <strong>INCOMPLETE</strong> results due to missing scores or grades.
+        The following students have <strong>INCOMPLETE</strong> results due to missing scores or grades for the courses indicated.
     </div>
     
     <div class="criteria-box">
-        <strong>Status:</strong> Students with incomplete examination results
+        <strong>Status:</strong> Students with incomplete examination results - Course codes separated by commas
     </div>
 
     @if(count($incompleteCases) > 0)
@@ -463,12 +463,12 @@
         <thead>
             <tr>
                 <th style="width: 4%">#</th>
-                <th style="width: 12%">REG. NO</th>
-                <th style="width: 12%">ENTRY NO</th>
-                <th style="width: 27%">STUDENT NAME</th>
+                <th style="width: 11%">REG. NO</th>
+                <th style="width: 11%">ENTRY NO</th>
+                <th style="width: 24%">STUDENT NAME</th>
                 <th style="width: 7%">GENDER</th>
-                <th style="width: 11%">PROGRAMME</th>
-                <th style="width: 27%">INCOMPLETE COURSES</th>
+                <th style="width: 10%">PROGRAMME</th>
+                <th style="width: 33%">INCOMPLETE COURSES</th>
             </tr>
         </thead>
         <tbody>
@@ -480,7 +480,7 @@
                 <td class="name">{{ $student->studname }}</td>
                 <td class="center">{{ $student->gender ?? '-' }}</td>
                 <td class="center">{{ $student->progid }}</td>
-                <td class="failed">{{ $student->incomplete_courses ?? 'N/A' }}</td>
+                <td class="failed" style="font-size: 7pt; line-height: 1.2;">{{ $student->incomplete_courses ?? 'N/A' }}</td>
             </tr>
             @endforeach
         </tbody>

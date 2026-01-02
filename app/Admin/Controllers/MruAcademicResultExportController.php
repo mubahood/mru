@@ -748,6 +748,7 @@ class MruAcademicResultExportController extends AdminController
      */
     private function getIncompleteCases($params)
     {
+        // Optimized query to get students with incomplete marks
         $query = DB::table('acad_results as r')
             ->join('acad_student as s', 's.regno', '=', 'r.regno')
             ->select(
@@ -756,15 +757,24 @@ class MruAcademicResultExportController extends AdminController
                 DB::raw("CONCAT(s.othername, ' ', s.firstname) as studname"),
                 's.gender', 
                 'r.progid',
-                DB::raw("GROUP_CONCAT(DISTINCT CONCAT(r.courseid, ' (', COALESCE(r.grade, 'N/A'), ')') SEPARATOR ', ') as incomplete_courses")
+                DB::raw("GROUP_CONCAT(DISTINCT r.courseid ORDER BY r.courseid SEPARATOR ', ') as incomplete_courses")
             )
             ->where(function($q) {
-                $q->whereNull('r.score')
-                  ->orWhere('r.score', '')
-                  ->orWhereNull('r.grade')
-                  ->orWhere('r.grade', '');
+                $q->where(function($subQ) {
+                    // Missing score or invalid score
+                    $subQ->whereNull('r.score')
+                         ->orWhere('r.score', '')
+                         ->orWhere('r.score', 0);
+                })->orWhere(function($subQ) {
+                    // Missing grade or invalid grade
+                    $subQ->whereNull('r.grade')
+                         ->orWhere('r.grade', '')
+                         ->orWhere('r.grade', 'X')
+                         ->orWhere('r.grade', 'I');
+                });
             })
-            ->whereNotNull('r.regno');
+            ->whereNotNull('r.regno')
+            ->whereNotNull('r.courseid');
 
         if (!empty($params['acad'])) {
             $query->where('r.acad', $params['acad']);
