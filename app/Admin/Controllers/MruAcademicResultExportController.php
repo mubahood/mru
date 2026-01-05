@@ -495,28 +495,18 @@ class MruAcademicResultExportController extends AdminController
         $export = MruAcademicResultExport::findOrFail($id);
         $params = $this->getExportParams($export);
         
-        // Get incomplete cases first - these should be excluded from all other categories
-        $incompleteCases = $this->getIncompleteCases($params, $export);
-        $incompleteRegnos = $incompleteCases->pluck('regno')->toArray();
+        // Get performance lists
+        $vcList = $this->getPerformanceList(4.40, 5.00, $params);
+        $deansList = $this->getPerformanceList(4.00, 4.39, $params);
         
-        // Get performance lists - excluding incomplete students
-        $vcList = $this->getPerformanceList(4.40, 5.00, $params, $incompleteRegnos);
-        $deansList = $this->getPerformanceList(4.00, 4.39, $params, $incompleteRegnos);
-        
-        // Get regno lists to exclude from pass cases (VC + Dean + Incomplete)
+        // Get regno lists to exclude from pass cases (VC + Dean only)
         $vcRegnos = $vcList->pluck('regno')->toArray();
         $deansRegnos = $deansList->pluck('regno')->toArray();
-        $excludeRegnos = array_merge($vcRegnos, $deansRegnos, $incompleteRegnos);
+        $excludeRegnos = array_merge($vcRegnos, $deansRegnos);
         
         $passCases = $this->getPassCases($params, $excludeRegnos);
         $haltedCases = $this->getHaltedCases($params);
         $retakeCases = $this->getRetakeCases($params);
-        
-        // Debug log to check incomplete cases
-        \Log::info('Incomplete Cases Count: ' . count($incompleteCases));
-        if (count($incompleteCases) > 0) {
-            \Log::info('Sample Incomplete: ' . json_encode($incompleteCases->first()));
-        }
         
         $data = [
             'export' => $export,
@@ -524,7 +514,6 @@ class MruAcademicResultExportController extends AdminController
             'vcList' => $vcList,
             'deansList' => $deansList,
             'passCases' => $passCases,
-            'incompleteCases' => $incompleteCases,
             'haltedCases' => $haltedCases,
             'retakeCases' => $retakeCases,
         ];

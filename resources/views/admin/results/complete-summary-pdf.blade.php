@@ -444,51 +444,6 @@
     <div class="no-data">No students in this category</div>
     @endif
 
-    <!-- Incomplete Cases -->
-    <div class="section-header">
-        INCOMPLETE
-        <span class="count">{{ count($incompleteCases) }} Students</span>
-    </div>
-    
-    <div style="margin: 8px 0; font-size: 8pt; line-height: 1.4; text-align: justify;">
-        The following students have <strong>INCOMPLETE</strong> results - they are registered for fewer courses than the total courses in this export.
-    </div>
-    
-    <div class="criteria-box">
-        <strong>Status:</strong> Students with fewer registered courses than expected - Missing course codes listed
-    </div>
-
-    @if(count($incompleteCases) > 0)
-    <table class="data-table">
-        <thead>
-            <tr>
-                <th style="width: 4%">#</th>
-                <th style="width: 11%">REG. NO</th>
-                <th style="width: 11%">ENTRY NO</th>
-                <th style="width: 24%">STUDENT NAME</th>
-                <th style="width: 7%">GENDER</th>
-                <th style="width: 10%">PROGRAMME</th>
-                <th style="width: 33%">MISSING COURSES</th>
-            </tr>
-        </thead>
-        <tbody>
-            @foreach($incompleteCases as $index => $student)
-            <tr>
-                <td class="number">{{ $index + 1 }}</td>
-                <td class="regno">{{ $student->regno }}</td>
-                <td class="center">{{ $student->entryno ?? '-' }}</td>
-                <td class="name">{{ $student->studname }}</td>
-                <td class="center">{{ $student->gender ?? '-' }}</td>
-                <td class="center">{{ $student->progid }}</td>
-                <td class="failed" style="font-size: 7pt; line-height: 1.2;">{{ $student->incomplete_courses ?? 'N/A' }}</td>
-            </tr>
-            @endforeach
-        </tbody>
-    </table>
-    @else
-    <div class="no-data">No students with incomplete results</div>
-    @endif
-
     <!-- Halted Cases -->
     <div class="section-header">
         HALTED
@@ -585,10 +540,9 @@
         VC's List: <strong>{{ count($vcList) }}</strong> | 
         Dean's List: <strong>{{ count($deansList) }}</strong> | 
         Second Class Lower: <strong>{{ count($passCases) }}</strong> | 
-        Incomplete: <strong>{{ count($incompleteCases) }}</strong> | 
         Halted: <strong>{{ count($haltedCases) }}</strong> | 
         Retake Cases: <strong>{{ count($retakeCases) }}</strong> | 
-        TOTAL: <strong>{{ count($vcList) + count($deansList) + count($passCases) + count($incompleteCases) + count($haltedCases) + count($retakeCases) }}</strong>
+        TOTAL: <strong>{{ count($vcList) + count($deansList) + count($passCases) + count($haltedCases) + count($retakeCases) }}</strong>
     </div>
     
     <!-- Report Footer -->
