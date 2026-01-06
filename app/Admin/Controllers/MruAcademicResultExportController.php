@@ -354,6 +354,7 @@ class MruAcademicResultExportController extends AdminController
             ->options([
                 '1' => 'Semester 1',
                 '2' => 'Semester 2',
+                '3' => 'Semester 3',
             ])
             ->required();
 
