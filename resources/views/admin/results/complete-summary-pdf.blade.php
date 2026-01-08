@@ -1,3 +1,37 @@
+{{--
+    Academic Results Complete Summary PDF Template
+    
+    Purpose:
+    Generates a comprehensive PDF report containing all student performance categories
+    based on CGPA ranges according to NCHE 2015 grading system.
+    
+    Categories Included:
+    1. First Class (Honours) - CGPA 4.40-5.00
+    2. Second Class Upper Division - CGPA 3.60-4.39
+    3. Second Class Lower Division - CGPA 2.80-3.59
+    4. Third Class (Pass) - CGPA 2.00-2.79
+    5. Halted Cases - Students with >6 retake courses
+    6. Retake Cases - Students who failed courses
+    
+    Data Variables Expected:
+    - $export: MruAcademicResultExport model instance
+    - $params: Array of export parameters (acad, semester, progid, studyyear, etc.)
+    - $firstClass: Collection of First Class students
+    - $secondClassUpper: Collection of Second Class Upper students
+    - $secondClassLower: Collection of Second Class Lower students
+    - $thirdClass: Collection of Third Class students
+    - $haltedCases: Collection of halted students
+    - $retakeCases: Collection of students with failed courses
+    
+    Styling:
+    - Enterprise color: #1a5490 (blue)
+    - Black table headers with white text
+    - Optimized spacing: 10mm margins, 7.5-8.5pt fonts
+    - A4 portrait orientation
+    
+    @version 2.0
+    @author MRU Development Team
+--}}
 <!DOCTYPE html>
 <html>
 <head>
@@ -309,10 +343,14 @@
         </table>
     </div>
 
-    <!-- VC's List -->
+    {{-- 
+        SECTION 1: FIRST CLASS (HONOURS)
+        CGPA Range: 4.40 - 5.00
+        Description: Highest academic achievement category
+    --}}
     <div class="section-header">
-        VICE CHANCELLOR'S LIST (FIRST CLASS)
-        <span class="count">{{ count($vcList) }} Students</span>
+        FIRST CLASS (HONOURS)
+        <span class="count">{{ count($firstClass) }} Students</span>
     </div>
     
     <div style="margin: 8px 0; font-size: 8pt; line-height: 1.4; text-align: justify;">
@@ -323,7 +361,7 @@
         <strong>Criteria:</strong> Students with Cumulative Grade Point Average (CGPA) between <strong>4.40 and 5.00</strong>
     </div>
 
-    @if(count($vcList) > 0)
+    @if(count($firstClass) > 0)
     <table class="data-table">
         <thead>
             <tr>
@@ -337,7 +375,7 @@
             </tr>
         </thead>
         <tbody>
-            @foreach($vcList as $index => $student)
+            @foreach($firstClass as $index => $student)
             <tr>
                 <td class="number">{{ $index + 1 }}</td>
                 <td class="regno">{{ $student->regno }}</td>
@@ -351,24 +389,24 @@
         </tbody>
     </table>
     @else
-    <div class="no-data">No students meet the VC's List criteria (CGPA 4.40 - 5.00)</div>
+    <div class="no-data">No students meet the First Class criteria (CGPA 4.40 - 5.00)</div>
     @endif
 
-    <!-- Dean's List -->
+    <!-- Dean's List / Second Class Upper -->
     <div class="section-header">
-        DEAN'S LIST (SECOND CLASS UPPER DIVISION)
-        <span class="count">{{ count($deansList) }} Students</span>
+        SECOND CLASS UPPER DIVISION
+        <span class="count">{{ count($secondClassUpper) }} Students</span>
     </div>
     
     <div style="margin: 8px 0; font-size: 8pt; line-height: 1.4; text-align: justify;">
-        The following students obtained a CGPA between <strong>4.00</strong> and <strong>4.39</strong>.
+        The following students obtained a CGPA between <strong>3.60</strong> and <strong>4.39</strong>.
     </div>
     
     <div class="criteria-box">
-        <strong>Criteria:</strong> Students with Cumulative Grade Point Average (CGPA) between <strong>4.00 and 4.39</strong>
+        <strong>Criteria:</strong> Students with Cumulative Grade Point Average (CGPA) between <strong>3.60 and 4.39</strong>
     </div>
 
-    @if(count($deansList) > 0)
+    @if(count($secondClassUpper) > 0)
     <table class="data-table">
         <thead>
             <tr>
@@ -382,7 +420,7 @@
             </tr>
         </thead>
         <tbody>
-            @foreach($deansList as $index => $student)
+            @foreach($secondClassUpper as $index => $student)
             <tr>
                 <td class="number">{{ $index + 1 }}</td>
                 <td class="regno">{{ $student->regno }}</td>
@@ -396,45 +434,90 @@
         </tbody>
     </table>
     @else
-    <div class="no-data">No students meet the Dean's List criteria (CGPA 4.00 - 4.39)</div>
+    <div class="no-data">No students meet the Second Class Upper criteria (CGPA 3.60 - 4.39)</div>
     @endif
 
-    <!-- Pass Cases -->
+    <!-- Second Class Lower -->
     <div class="section-header">
         SECOND CLASS LOWER DIVISION
-        <span class="count">{{ count($passCases) }} Students</span>
+        <span class="count">{{ count($secondClassLower) }} Students</span>
     </div>
     
     <div style="margin: 8px 0; font-size: 8pt; line-height: 1.4; text-align: justify;">
-        The following candidates, whose registration numbers appear below, <strong>PASSED</strong> their semester examinations and were recommended to proceed subject to the approval of the <strong>SENATE Examination Board</strong>.
+        The following students obtained a CGPA between <strong>2.80</strong> and <strong>3.59</strong>.
     </div>
     
     <div class="criteria-box">
-        <strong>Criteria:</strong> Students who passed all courses - Score ≥ 50 (Undergraduate) or ≥ 60 (Postgraduate)
+        <strong>Criteria:</strong> Students with Cumulative Grade Point Average (CGPA) between <strong>2.80 and 3.59</strong>
     </div>
 
-    @if(count($passCases) > 0)
+    @if(count($secondClassLower) > 0)
     <table class="data-table">
         <thead>
             <tr>
                 <th style="width: 5%">#</th>
                 <th style="width: 13%">REG. NO</th>
                 <th style="width: 13%">ENTRY NO</th>
-                <th style="width: 35%">STUDENT NAME</th>
+                <th style="width: 38%">STUDENT NAME</th>
                 <th style="width: 8%">GENDER</th>
                 <th style="width: 10%">CGPA</th>
-                <th style="width: 16%">PROGRAMME</th>
+                <th style="width: 13%">PROGRAMME</th>
             </tr>
         </thead>
         <tbody>
-            @foreach($passCases as $index => $student)
+            @foreach($secondClassLower as $index => $student)
             <tr>
                 <td class="number">{{ $index + 1 }}</td>
                 <td class="regno">{{ $student->regno }}</td>
                 <td class="center">{{ $student->entryno ?? '-' }}</td>
                 <td class="name">{{ $student->studname }}</td>
                 <td class="center">{{ $student->gender ?? '-' }}</td>
-                <td class="cgpa">{{ isset($student->cgpa) ? number_format($student->cgpa, 2) : '-' }}</td>
+                <td class="cgpa">{{ number_format($student->cgpa, 2) }}</td>
+                <td class="center">{{ $student->progid }}</td>
+            </tr>
+            @endforeach
+        </tbody>
+    </table>
+    @else
+    <div class="no-data">No students in this category</div>
+    @endif
+
+    <!-- Third Class (Pass) -->
+    <div class="section-header">
+        THIRD CLASS (PASS)
+        <span class="count">{{ count($thirdClass) }} Students</span>
+    </div>
+    
+    <div style="margin: 8px 0; font-size: 8pt; line-height: 1.4; text-align: justify;">
+        The following students obtained a CGPA between <strong>2.00</strong> and <strong>2.79</strong>.
+    </div>
+    
+    <div class="criteria-box">
+        <strong>Criteria:</strong> Students with Cumulative Grade Point Average (CGPA) between <strong>2.00 and 2.79</strong>
+    </div>
+
+    @if(count($thirdClass) > 0)
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th style="width: 5%">#</th>
+                <th style="width: 13%">REG. NO</th>
+                <th style="width: 13%">ENTRY NO</th>
+                <th style="width: 38%">STUDENT NAME</th>
+                <th style="width: 8%">GENDER</th>
+                <th style="width: 10%">CGPA</th>
+                <th style="width: 13%">PROGRAMME</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach($thirdClass as $index => $student)
+            <tr>
+                <td class="number">{{ $index + 1 }}</td>
+                <td class="regno">{{ $student->regno }}</td>
+                <td class="center">{{ $student->entryno ?? '-' }}</td>
+                <td class="name">{{ $student->studname }}</td>
+                <td class="center">{{ $student->gender ?? '-' }}</td>
+                <td class="cgpa">{{ number_format($student->cgpa, 2) }}</td>
                 <td class="center">{{ $student->progid }}</td>
             </tr>
             @endforeach
@@ -537,12 +620,13 @@
     <!-- Summary Footer -->
     <div class="summary-stats">
         <strong>OVERALL SUMMARY:</strong> 
-        VC's List: <strong>{{ count($vcList) }}</strong> | 
-        Dean's List: <strong>{{ count($deansList) }}</strong> | 
-        Second Class Lower: <strong>{{ count($passCases) }}</strong> | 
+        First Class: <strong>{{ count($firstClass) }}</strong> | 
+        Second Class Upper: <strong>{{ count($secondClassUpper) }}</strong> | 
+        Second Class Lower: <strong>{{ count($secondClassLower) }}</strong> | 
+        Third Class: <strong>{{ count($thirdClass) }}</strong> | 
         Halted: <strong>{{ count($haltedCases) }}</strong> | 
         Retake Cases: <strong>{{ count($retakeCases) }}</strong> | 
-        TOTAL: <strong>{{ count($vcList) + count($deansList) + count($passCases) + count($haltedCases) + count($retakeCases) }}</strong>
+        TOTAL: <strong>{{ count($firstClass) + count($secondClassUpper) + count($secondClassLower) + count($thirdClass) + count($haltedCases) + count($retakeCases) }}</strong>
     </div>
     
     <!-- Report Footer -->

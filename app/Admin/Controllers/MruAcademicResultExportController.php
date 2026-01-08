@@ -21,6 +21,29 @@ use Illuminate\Support\Str;
 use Illuminate\Support\Facades\DB;
 use Barryvdh\DomPDF\Facade\Pdf;
 
+/**
+ * MRU Academic Result Export Controller
+ * 
+ * This controller manages academic result exports and summary reports for MRU (Mountains of the Moon University).
+ * It handles both detailed exports and summary reports categorized by CGPA ranges according to NCHE 2015 grading system.
+ * 
+ * Features:
+ * - Export academic results to Excel/PDF/HTML formats
+ * - Generate summary reports by grade classification
+ * - Support for filtering by academic year, semester, programme, study year, and specialisation
+ * - CGPA-based student categorization into First Class, Second Class Upper/Lower, Third Class
+ * - Identification of halted and retake cases
+ * 
+ * CGPA Grade Classification (NCHE 2015):
+ * - First Class (Honours): 4.40 - 5.00
+ * - Second Class Upper Division: 3.60 - 4.39
+ * - Second Class Lower Division: 2.80 - 3.59
+ * - Third Class (Pass): 2.00 - 2.79
+ * 
+ * @package App\Admin\Controllers
+ * @author MRU Development Team
+ * @version 2.0
+ */
 class MruAcademicResultExportController extends AdminController
 {
     /**
@@ -29,6 +52,22 @@ class MruAcademicResultExportController extends AdminController
      * @var string
      */
     protected $title = 'MRU Academic Result Exports';
+
+    /**
+     * CGPA thresholds for grade classification according to NCHE 2015
+     * These constants define the grade boundaries used throughout the system
+     */
+    const GRADE_FIRST_CLASS_MIN = 4.40;
+    const GRADE_FIRST_CLASS_MAX = 5.00;
+    
+    const GRADE_SECOND_UPPER_MIN = 3.60;
+    const GRADE_SECOND_UPPER_MAX = 4.39;
+    
+    const GRADE_SECOND_LOWER_MIN = 2.80;
+    const GRADE_SECOND_LOWER_MAX = 3.59;
+    
+    const GRADE_THIRD_CLASS_MIN = 2.00;
+    const GRADE_THIRD_CLASS_MAX = 2.79;
 
     /**
      * Make a grid builder.
@@ -480,6 +519,13 @@ class MruAcademicResultExportController extends AdminController
 
     /**
      * Show summary reports selection page
+     * 
+     * Displays an interface allowing users to generate various summary reports:
+     * - Complete summary (all categories in one PDF)
+     * - Individual category reports (First Class, Second Class Upper/Lower, Third Class, Retake Cases)
+     * 
+     * @param int $id Export record ID
+     * @return \Illuminate\View\View
      */
     public function summaryReports($id)
     {
@@ -491,36 +537,71 @@ class MruAcademicResultExportController extends AdminController
     /**
      * Generate Complete Summary Report (All Lists in One PDF)
      */
+    /**
+     * Generate complete summary report containing all student categories
+     * 
+     * This method generates a comprehensive PDF report with the following sections:
+     * 1. First Class (Honours) - CGPA 4.40-5.00
+     * 2. Second Class Upper Division - CGPA 3.60-4.39
+     * 3. Second Class Lower Division - CGPA 2.80-3.59
+     * 4. Third Class (Pass) - CGPA 2.00-2.79
+     * 5. Halted Cases - Students with >6 retake courses
+     * 6. Retake Cases - Students who failed one or more courses
+     * 
+     * Each category is displayed in a separate table with student details and relevant metrics.
+     * The report includes enterprise branding and follows the NCHE 2015 grading system.
+     * 
+     * @param int $id Export record ID
+     * @return \Illuminate\Http\Response PDF stream response
+     */
     public function generateCompleteSummary($id)
     {
         $export = MruAcademicResultExport::findOrFail($id);
         $params = $this->getExportParams($export);
         
-        // Get performance lists
-        $vcList = $this->getPerformanceList(4.40, 5.00, $params);
-        $deansList = $this->getPerformanceList(4.00, 4.39, $params);
+        // Get performance lists based on NCHE 2015 CGPA ranges
+        $firstClass = $this->getPerformanceList(
+            self::GRADE_FIRST_CLASS_MIN, 
+            self::GRADE_FIRST_CLASS_MAX, 
+            $params
+        );
         
-        // Get regno lists to exclude from pass cases (VC + Dean only)
-        $vcRegnos = $vcList->pluck('regno')->toArray();
-        $deansRegnos = $deansList->pluck('regno')->toArray();
-        $excludeRegnos = array_merge($vcRegnos, $deansRegnos);
+        $secondClassUpper = $this->getPerformanceList(
+            self::GRADE_SECOND_UPPER_MIN, 
+            self::GRADE_SECOND_UPPER_MAX, 
+            $params
+        );
         
-        $passCases = $this->getPassCases($params, $excludeRegnos);
+        $secondClassLower = $this->getPerformanceList(
+            self::GRADE_SECOND_LOWER_MIN, 
+            self::GRADE_SECOND_LOWER_MAX, 
+            $params
+        );
+        
+        $thirdClass = $this->getPerformanceList(
+            self::GRADE_THIRD_CLASS_MIN, 
+            self::GRADE_THIRD_CLASS_MAX, 
+            $params
+        );
+        
+        // Get halted and retake cases
         $haltedCases = $this->getHaltedCases($params);
         $retakeCases = $this->getRetakeCases($params);
         
+        // Prepare data for PDF view
         $data = [
             'export' => $export,
             'params' => $params,
-            'vcList' => $vcList,
-            'deansList' => $deansList,
-            'passCases' => $passCases,
+            'firstClass' => $firstClass,
+            'secondClassUpper' => $secondClassUpper,
+            'secondClassLower' => $secondClassLower,
+            'thirdClass' => $thirdClass,
             'haltedCases' => $haltedCases,
             'retakeCases' => $retakeCases,
         ];
         
+        // Generate PDF
         $pdf = Pdf::loadView('admin.results.complete-summary-pdf', $data);
-        
         $pdf->setPaper('A4', 'portrait');
         
         $filename = 'Academic_Results_Summary_' . $export->export_name . '_' . date('Y-m-d') . '.pdf';
@@ -529,51 +610,82 @@ class MruAcademicResultExportController extends AdminController
     }
 
     /**
-     * Generate VC's List PDF (CGPA 4.40 - 5.00)
+     * Generate First Class (Honours) report
+     * 
+     * Generates a PDF report containing only students who achieved First Class Honours
+     * with CGPA between 4.40 and 5.00 according to NCHE 2015 grading system.
+     * 
+     * @param int $id Export record ID
+     * @return \Illuminate\Http\Response PDF stream response
      */
     public function generateVCList($id)
     {
         $export = MruAcademicResultExport::findOrFail($id);
         $params = $this->getExportParams($export);
         
-        $students = $this->getPerformanceList(4.40, 5.00, $params);
+        $students = $this->getPerformanceList(
+            self::GRADE_FIRST_CLASS_MIN, 
+            self::GRADE_FIRST_CLASS_MAX, 
+            $params
+        );
         
-        return $this->generateSummaryPDF('VC\'s List', $students, $export);
+        return $this->generateSummaryPDF('First Class (Honours)', $students, $export);
     }
 
     /**
-     * Generate Dean's List PDF (CGPA 4.00 - 4.39)
+     * Generate Second Class Upper Division report
+     * 
+     * Generates a PDF report containing only students who achieved Second Class Upper Division
+     * with CGPA between 3.60 and 4.39 according to NCHE 2015 grading system.
+     * 
+     * @param int $id Export record ID
+     * @return \Illuminate\Http\Response PDF stream response
      */
     public function generateDeansList($id)
     {
         $export = MruAcademicResultExport::findOrFail($id);
         $params = $this->getExportParams($export);
         
-        $students = $this->getPerformanceList(4.00, 4.39, $params);
+        $students = $this->getPerformanceList(
+            self::GRADE_SECOND_UPPER_MIN, 
+            self::GRADE_SECOND_UPPER_MAX, 
+            $params
+        );
         
-        return $this->generateSummaryPDF('Dean\'s List', $students, $export);
+        return $this->generateSummaryPDF('Second Class Upper Division', $students, $export);
     }
 
     /**
-     * Generate Pass Cases PDF
+     * Generate Second Class Lower Division report
+     * 
+     * Generates a PDF report containing only students who achieved Second Class Lower Division
+     * with CGPA between 2.80 and 3.59 according to NCHE 2015 grading system.
+     * 
+     * @param int $id Export record ID
+     * @return \Illuminate\Http\Response PDF stream response
      */
     public function generatePassCases($id)
     {
         $export = MruAcademicResultExport::findOrFail($id);
         $params = $this->getExportParams($export);
         
-        // Exclude VC and Dean's list students
-        $vcList = $this->getPerformanceList(4.40, 5.00, $params);
-        $deansList = $this->getPerformanceList(4.00, 4.39, $params);
-        $excludeRegnos = array_merge($vcList->pluck('regno')->toArray(), $deansList->pluck('regno')->toArray());
+        $students = $this->getPerformanceList(
+            self::GRADE_SECOND_LOWER_MIN, 
+            self::GRADE_SECOND_LOWER_MAX, 
+            $params
+        );
         
-        $students = $this->getPassCases($params, $excludeRegnos);
-        
-        return $this->generateSummaryPDF('Second Class Lower', $students, $export);
+        return $this->generateSummaryPDF('Second Class Lower Division', $students, $export);
     }
 
     /**
-     * Generate Retake Cases PDF
+     * Generate Retake Cases (Pass Degree) report
+     * 
+     * Generates a PDF report containing students who failed one or more courses
+     * and need to retake them. Includes the list of failed courses for each student.
+     * 
+     * @param int $id Export record ID
+     * @return \Illuminate\Http\Response PDF stream response
      */
     public function generateRetakeCases($id)
     {
@@ -582,27 +694,51 @@ class MruAcademicResultExportController extends AdminController
         
         $students = $this->getRetakeCases($params);
         
-        return $this->generateSummaryPDF('Retake Cases', $students, $export);
+        return $this->generateSummaryPDF('Retake Cases (Pass Degree)', $students, $export);
     }
 
     /**
-     * Get parameters from export record
+     * Extract export parameters from export record
+     * 
+     * Converts an export record into a standardized array of parameters
+     * used for filtering database queries. This ensures consistency across
+     * all report generation methods.
+     * 
+     * @param \App\Models\MruAcademicResultExport $export Export record
+     * @return array Associative array of export parameters
      */
     private function getExportParams($export)
     {
         return [
-            'acad' => $export->academic_year,
-            'semester' => $export->semester,
-            'progid' => $export->programme_id,
-            'studyyear' => $export->study_year,
-            'specialisation_id' => $export->specialisation_id,
-            'start_range' => $export->start_range,
-            'end_range' => $export->end_range,
+            'acad' => $export->academic_year,           // Academic year (e.g., "2023/2024")
+            'semester' => $export->semester,             // Semester number (1 or 2)
+            'progid' => $export->programme_id,           // Programme code
+            'studyyear' => $export->study_year,          // Year of study (1, 2, 3, or 4)
+            'specialisation_id' => $export->specialisation_id, // Optional specialisation ID
+            'start_range' => $export->start_range,       // Starting position for range-based exports
+            'end_range' => $export->end_range,           // Ending position for range-based exports
         ];
     }
 
     /**
-     * Get performance list (VC/Dean) with CGPA calculation
+     * Get students by CGPA performance range
+     * 
+     * Retrieves students whose CGPA falls within the specified range. This is the core method
+     * used for categorizing students into different class divisions (First Class, Second Class Upper/Lower, etc.)
+     * 
+     * The method:
+     * 1. Queries all student results from acad_results table
+     * 2. Calculates CGPA using: SUM(CreditUnits * GradePoint) / SUM(CreditUnits)
+     * 3. Filters students by CGPA range
+     * 4. Sorts by CGPA descending
+     * 5. Applies optional range limiting
+     * 6. Optionally excludes specified registration numbers
+     * 
+     * @param float $cgpaMin Minimum CGPA threshold (inclusive)
+     * @param float $cgpaMax Maximum CGPA threshold (inclusive)
+     * @param array $params Export parameters (acad, semester, progid, studyyear, specialisation_id, start_range, end_range)
+     * @param array $excludeRegnos Optional array of registration numbers to exclude
+     * @return \Illuminate\Support\Collection Collection of student records with regno, entryno, studname, gender, progid, cgpa
      */
     private function getPerformanceList($cgpaMin, $cgpaMax, $params, $excludeRegnos = [])
     {
@@ -614,6 +750,7 @@ class MruAcademicResultExportController extends AdminController
                 DB::raw("CONCAT(s.othername, ' ', s.firstname) as studname"),
                 's.gender',
                 'r.progid',
+                // CGPA Calculation: Weighted average of (Credit Units × Grade Points) / Total Credit Units
                 DB::raw('(SELECT SUM(r2.CreditUnits * r2.gradept) / NULLIF(SUM(r2.CreditUnits), 0) 
                          FROM acad_results r2 
                          WHERE r2.regno = r.regno) as cgpa')
@@ -621,7 +758,7 @@ class MruAcademicResultExportController extends AdminController
             ->whereNotNull('r.regno')
             ->groupBy('r.regno', 's.entryno', 's.othername', 's.firstname', 's.gender', 'r.progid');
 
-        // Exclude specified students (e.g., incomplete students)
+        // Exclude specified students if provided (useful for preventing duplication across categories)
         if (!empty($excludeRegnos)) {
             $query->whereNotIn('r.regno', $excludeRegnos);
         }
@@ -645,12 +782,12 @@ class MruAcademicResultExportController extends AdminController
 
         $results = $query->get();
 
-        // Filter by CGPA range
+        // Filter by CGPA range (done in memory after retrieval for accuracy)
         $filtered = $results->filter(function($student) use ($cgpaMin, $cgpaMax) {
             return $student->cgpa >= $cgpaMin && $student->cgpa <= $cgpaMax;
         })->sortByDesc('cgpa')->values();
 
-        // Apply range limit if specified
+        // Apply range limit if specified (e.g., top 100 students)
         if (!empty($params['start_range']) && !empty($params['end_range'])) {
             $start = $params['start_range'] - 1; // Convert to 0-based index
             $end = $params['end_range'];
@@ -661,11 +798,22 @@ class MruAcademicResultExportController extends AdminController
     }
 
     /**
-     * Get pass cases - students who passed all courses (Second Class Lower)
+     * Get students who passed all courses (legacy method - now unused in summary reports)
+     * 
+     * This method was previously used for "Pass Cases" but has been replaced by CGPA-based
+     * classification. Kept for backward compatibility with detailed exports.
+     * 
+     * Identifies students who passed all their courses based on pass thresholds:
+     * - Undergraduate programs (level < 4): Pass mark = 50
+     * - Postgraduate programs (level >= 4): Pass mark = 60
+     * 
+     * @param array $params Export parameters
+     * @param array $excludeRegnos Registration numbers to exclude
+     * @return \Illuminate\Support\Collection Collection of students who passed all courses
      */
     private function getPassCases($params, $excludeRegnos = [])
     {
-        // Get program level
+        // Determine pass threshold based on program level
         $programLevel = null;
         if (!empty($params['progid'])) {
             $prog = MruProgramme::where('progcode', $params['progid'])->first();
@@ -749,22 +897,39 @@ class MruAcademicResultExportController extends AdminController
 
     /**
      * Get incomplete cases - students with fewer course registrations than expected
-     * Uses minimum_passes_required from export configuration as expected count
+     * 
+     * Identifies students who have registered for fewer courses than the expected total
+     * specified in the export configuration (minimum_passes_required field).
+     * 
+     * This is used in detailed exports (not summary reports) to identify students
+     * who haven't completed their full course load for the semester/year.
+     * 
+     * Algorithm:
+     * 1. Get expected course count from export.minimum_passes_required
+     * 2. Count each student's course registrations
+     * 3. Identify students with count < expected
+     * 4. Calculate which courses they're missing
+     * 
+     * @param array $params Export parameters
+     * @param \App\Models\MruAcademicResultExport $export Export record
+     * @return \Illuminate\Support\Collection Collection of incomplete students with missing courses
      */
     private function getIncompleteCases($params, $export)
     {
         // Use the expected course count from export configuration
         $expectedCourseCount = $export->minimum_passes_required ?? 0;
         
+        // If no expected count is set, return empty collection
         if ($expectedCourseCount == 0) {
             return collect([]);
         }
 
-        // Get all courses for this export configuration (for reference)
+        // Get all courses for this export configuration (for identifying missing courses)
         $coursesQuery = DB::table('acad_results')
             ->select('courseid')
             ->distinct();
 
+        // Apply same filters as main export
         if (!empty($params['acad'])) {
             $coursesQuery->where('acad', $params['acad']);
         }
@@ -783,7 +948,7 @@ class MruAcademicResultExportController extends AdminController
 
         $allCourses = $coursesQuery->pluck('courseid')->toArray();
 
-        // Get all students with their course count (total registrations, not unique courses)
+        // Get all students with their course registration count
         $studentsQuery = DB::table('acad_results as r')
             ->join('acad_student as s', 's.regno', '=', 'r.regno')
             ->select(
