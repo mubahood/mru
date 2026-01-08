@@ -91,11 +91,24 @@ class MruAcademicResultGenerateController extends Controller
      * Generate Missing Marks Report
      * 
      * Generates a specialized report showing ONLY students with incomplete marks.
-     * This report uses the same logic as the full export but displays only
-     * the incomplete students table without the full grade matrices.
+     * This report uses the same IncompleteMarksTracker logic as the full export
+     * but displays only the incomplete students table without full grade matrices.
      * 
-     * @param Request $req
-     * @return \Illuminate\Http\Response
+     * Features:
+     * - HTML (default): Interactive browser view with print support
+     * - Excel: Single sheet with incomplete students only
+     * - PDF: Professional report matching standard PDF exports
+     * 
+     * URL Parameters:
+     * - type: html|excel|pdf (default: html)
+     * 
+     * Example URLs:
+     * - /admin/mru-academic-result-exports/{id}/generate-missing-marks
+     * - /admin/mru-academic-result-exports/{id}/generate-missing-marks?type=excel
+     * - /admin/mru-academic-result-exports/{id}/generate-missing-marks?type=pdf
+     * 
+     * @param Request $req Request object with export ID and optional type parameter
+     * @return \Illuminate\Http\Response PDF stream, Excel download, or Blade view
      */
     public function generateMissingMarks(Request $req)
     {
@@ -211,9 +224,19 @@ class MruAcademicResultGenerateController extends Controller
     /**
      * Generate HTML for Missing Marks PDF
      * 
-     * @param MruAcademicResultExport $export
-     * @param array $incompleteStudents
-     * @return string
+     * Creates professionally styled HTML matching standard MRU PDF exports.
+     * Includes institution branding, logo, and consistent formatting.
+     * 
+     * Styling Features:
+     * - A4 Landscape format with proper margins
+     * - Institution logo and branding colors
+     * - Compact 7pt font for data density
+     * - Table with enterprise primary color header
+     * - Professional footer with generation timestamp
+     * 
+     * @param MruAcademicResultExport $export Export configuration
+     * @param array $incompleteStudents Array of incomplete student records
+     * @return string Complete HTML document ready for PDF rendering
      */
     protected function generateMissingMarksHtml($export, $incompleteStudents)
     {

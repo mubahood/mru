@@ -4,6 +4,32 @@
 
 The Incomplete Marks Tracking System is a modular, reusable component designed to identify and report students who have submitted some course results but are missing marks for certain courses. This system integrates seamlessly with the MRU Academic Result Export functionality and provides comprehensive reporting across multiple formats.
 
+**Version**: 1.0.0  
+**Release Date**: January 8, 2026  
+**Status**: ✅ Production Ready
+
+## Quick Start
+
+### For Administrators
+
+1. Navigate to **Admin Panel → MRU Academic Result Exports**
+2. Find the export you want to check
+3. Click the **red "Missing" button**
+4. View the interactive HTML report
+5. Export to Excel or PDF if needed
+
+### For Developers
+
+```php
+use App\Helpers\IncompleteMarksTracker;
+
+$tracker = new IncompleteMarksTracker();
+foreach ($students as $student) {
+    $tracker->trackStudent($student, $courses, $results, $specName);
+}
+$incomplete = $tracker->getIncompleteStudents();
+```
+
 ## Table of Contents
 
 1. [Architecture](#architecture)

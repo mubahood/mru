@@ -16,21 +16,43 @@ use Illuminate\Support\Collection;
  * - Skips students with zero marks (completely absent)
  * - Tracks missing course details for each student
  * - Provides detailed information for reporting and follow-up
+ * - Sorting and filtering capabilities
+ * - Statistical analysis methods
  * 
  * Usage:
  * ```php
+ * use App\Helpers\IncompleteMarksTracker;
+ * 
  * $tracker = new IncompleteMarksTracker();
  * 
  * foreach ($students as $student) {
  *     $tracker->trackStudent($student, $courses, $results, $specializationName);
  * }
  * 
+ * // Get all incomplete students
  * $incompleteStudents = $tracker->getIncompleteStudents();
+ * 
+ * // Get statistics
+ * $stats = $tracker->getStatistics();
+ * 
+ * // Sort by missing count (descending)
+ * $sorted = $tracker->getSortedIncompleteStudents('marks_missing_count', 'desc');
  * ```
+ * 
+ * Data Structure:
+ * Each tracked student contains:
+ * - regno: Student registration number
+ * - name: Full student name
+ * - specialization: Specialization name
+ * - total_courses: Total number of courses
+ * - marks_obtained: Number of courses with results
+ * - marks_missing_count: Number of missing courses
+ * - missing_courses: Comma-separated course IDs
  * 
  * @package App\Helpers
  * @version 1.0.0
  * @author MRU Development Team
+ * @since 2026-01-08
  */
 class IncompleteMarksTracker
 {
