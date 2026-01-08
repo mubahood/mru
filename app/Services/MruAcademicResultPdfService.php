@@ -6,6 +6,7 @@ use App\Models\MruResult;
 use App\Models\MruAcademicResultExport;
 use App\Models\MruStudent;
 use App\Models\Enterprise;
+use App\Helpers\IncompleteMarksTracker;
 use Barryvdh\DomPDF\Facade\Pdf;
 
 /**
@@ -17,6 +18,7 @@ class MruAcademicResultPdfService
     protected $export;
     protected $studentsBySpecialization;
     protected $specializationData = [];
+    protected $incompleteTracker;
 
     public function __construct(MruAcademicResultExport $export)
     {
@@ -24,6 +26,7 @@ class MruAcademicResultPdfService
         ini_set('max_execution_time', '300');
         
         $this->export = $export;
+        $this->incompleteTracker = new IncompleteMarksTracker();
         $this->loadData();
     }
 
@@ -128,12 +131,30 @@ class MruAcademicResultPdfService
                     return $studentResults->keyBy('courseid');
                 });
 
-            $this->specializationData[$spec] = [
-                'name' => $specName,
-                'students' => $students,
-                'courses' => $courses,
-                'results' => $results,
-            ];
+            // Filter out students with no marks at all and track incomplete students
+            $studentsWithMarks = $students->filter(function($student) use ($results, $courses, $specName) {
+                $studentResults = $results->get($student->regno, collect());
+                
+                // Skip students with no marks at all
+                if ($studentResults->isEmpty()) {
+                    return false;
+                }
+                
+                // Use the helper to track incomplete students
+                $this->incompleteTracker->trackStudent($student, $courses, $results, $specName);
+                
+                return true;
+            });
+
+            // Only add specialization if there are students with marks
+            if ($studentsWithMarks->isNotEmpty()) {
+                $this->specializationData[$spec] = [
+                    'name' => $specName,
+                    'students' => $studentsWithMarks,
+                    'courses' => $courses,
+                    'results' => $results,
+                ];
+            }
         }
     }
 
@@ -551,6 +572,65 @@ class MruAcademicResultPdfService
             
             $html .= '</tbody>
                 </table>
+            </div>';
+        }
+        
+        // Add Students with Incomplete Marks Summary Table
+        if ($this->incompleteTracker->hasIncompleteStudents()) {
+            $incompleteStudents = $this->incompleteTracker->getIncompleteStudents();
+            
+            $html .= '
+            <div class="incomplete-summary" style="margin-top: 15px; page-break-before: always;">
+                <h3 style="font-size: 10pt; color: #d32f2f; margin-bottom: 5px; border-bottom: 3px solid #d32f2f; padding-bottom: 3px; font-weight: bold;">
+                    ⚠️ STUDENTS WITH INCOMPLETE MARKS
+                </h3>
+                <p style="font-size: 7pt; color: #666; margin: 5px 0 8px 0;">
+                    The following students have submitted some course results but are missing marks for certain courses. 
+                    Total students with incomplete marks: <strong>' . $this->incompleteTracker->getCount() . '</strong>
+                </p>
+                
+                <table style="width: 100%; border-collapse: collapse; font-size: 6.5pt; margin-top: 5px;">
+                    <thead>
+                        <tr style="background-color: #1a5490; color: white;">
+                            <th style="padding: 4px 3px; border: 1px solid #ccc; text-align: center; width: 3%;">No.</th>
+                            <th style="padding: 4px 3px; border: 1px solid #ccc; text-align: left; width: 10%;">Reg No</th>
+                            <th style="padding: 4px 3px; border: 1px solid #ccc; text-align: left; width: 18%;">Student Name</th>
+                            <th style="padding: 4px 3px; border: 1px solid #ccc; text-align: left; width: 15%;">Specialization</th>
+                            <th style="padding: 4px 3px; border: 1px solid #ccc; text-align: center; width: 6%;">Total Courses</th>
+                            <th style="padding: 4px 3px; border: 1px solid #ccc; text-align: center; width: 6%;">Marks Obtained</th>
+                            <th style="padding: 4px 3px; border: 1px solid #ccc; text-align: center; width: 6%;">Marks Missing</th>
+                            <th style="padding: 4px 3px; border: 1px solid #ccc; text-align: left; width: 36%;">Missing Courses</th>
+                        </tr>
+                    </thead>
+                    <tbody>';
+            
+            foreach ($incompleteStudents as $index => $student) {
+                $rowColor = ($index % 2 == 0) ? '#ffffff' : '#f8f9fa';
+                $missingCoursesStr = $student['missing_courses'];
+                
+                // Truncate if too long
+                if (strlen($missingCoursesStr) > 120) {
+                    $missingCoursesStr = substr($missingCoursesStr, 0, 120) . '...';
+                }
+                
+                $html .= '<tr style="background-color: ' . $rowColor . ';">
+                            <td style="padding: 3px; border: 1px solid #ddd; text-align: center;">' . ($index + 1) . '</td>
+                            <td style="padding: 3px; border: 1px solid #ddd;">' . e($student['regno']) . '</td>
+                            <td style="padding: 3px; border: 1px solid #ddd; font-size: 6pt;">' . e($student['name']) . '</td>
+                            <td style="padding: 3px; border: 1px solid #ddd; font-size: 6pt;">' . e($student['specialization']) . '</td>
+                            <td style="padding: 3px; border: 1px solid #ddd; text-align: center; font-weight: bold;">' . $student['total_courses'] . '</td>
+                            <td style="padding: 3px; border: 1px solid #ddd; text-align: center; color: #2e7d32; font-weight: bold;">' . $student['marks_obtained'] . '</td>
+                            <td style="padding: 3px; border: 1px solid #ddd; text-align: center; color: #d32f2f; font-weight: bold;">' . $student['marks_missing_count'] . '</td>
+                            <td style="padding: 3px; border: 1px solid #ddd; font-size: 5.5pt;">' . e($missingCoursesStr) . '</td>
+                        </tr>';
+            }
+            
+            $html .= '</tbody>
+                </table>
+                
+                <div style="margin-top: 8px; padding: 5px; background-color: #fff3cd; border-left: 4px solid #ffc107; font-size: 6.5pt;">
+                    <strong>Note:</strong> These students need to submit marks for the missing courses listed above to complete their academic record for this semester.
+                </div>
             </div>';
         }
         

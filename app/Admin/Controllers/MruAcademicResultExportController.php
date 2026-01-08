@@ -120,13 +120,7 @@ class MruAcademicResultExportController extends AdminController
                 if (!$progId) return '<span class="label label-default">All</span>';
                 return $this->programme ? $this->programme->progname : $progId;
             });
-
-        $grid->column('specialisation_id', __('Specialisation'))
-            ->display(function ($specId) {
-                if (!$specId) return '<span class="label label-default">All</span>';
-                $spec = \DB::table('acad_specialisation')->where('spec_id', $specId)->first();
-                return $spec ? $spec->abbrev : $specId;
-            });
+ 
 
         $grid->column('range', __('Range'))
             ->display(function () {
@@ -152,18 +146,7 @@ class MruAcademicResultExportController extends AdminController
             ])
             ->hide()
             ->sortable();
-
-        $grid->column('created_by', __('Created By'))
-            ->display(function ($userId) {
-                return $this->creator ? $this->creator->name : 'N/A';
-            });
-
-        $grid->column('created_at', __('Created At'))
-            ->display(function ($date) {
-                return date('d M Y H:i', strtotime($date));
-            })
-            ->sortable();
-
+ 
         $grid->column('generate_excel', __('GEN EXCEL'))
             ->display(function () {
                 $url = url("/mru-academic-result-generate?id=$this->id&type=excel");
@@ -188,35 +171,7 @@ class MruAcademicResultExportController extends AdminController
                 </a>";
             });
 
-        $grid->column('view_html', __('VIEW HTML'))
-            ->display(function () {
-                if ($this->export_type === 'html' || $this->export_type === 'both') {
-                    $url = admin_url("mru-academic-result-exports/{$this->id}/view-html");
-                    return "<a href='$url' target='_blank' class='btn btn-sm btn-info'>
-                        <i class='fa fa-eye'></i>
-                    </a>";
-                }
-                return "<span class='text-muted'>-</span>";
-            });
-
-        $grid->column('download_link', __('Download Link'))
-            ->display(function () {
-                $actions = '';
-                
-                if ($this->excel_path && file_exists(storage_path('app/' . $this->excel_path))) {
-                    $actions .= "<a href='" . admin_url("mru-academic-result-exports/{$this->id}/download-excel") . "' class='btn btn-xs btn-success' style='margin-right: 5px;'>
-                        <i class='fa fa-file-excel-o'></i> Excel
-                    </a>";
-                }
-                
-                if ($this->pdf_path && file_exists(storage_path('app/' . $this->pdf_path))) {
-                    $actions .= "<a href='" . admin_url("mru-academic-result-exports/{$this->id}/download-pdf") . "' class='btn btn-xs btn-danger'>
-                        <i class='fa fa-file-pdf-o'></i> PDF
-                    </a>";
-                }
-                
-                return $actions ?: '<span class="text-muted">Not generated yet</span>';
-            });
+ 
 
         $grid->filter(function ($filter) {
             $filter->disableIdFilter();
@@ -272,6 +227,14 @@ class MruAcademicResultExportController extends AdminController
                 $url = admin_url("mru-academic-result-exports/{$this->id}/summary-reports");
                 return "<a href='$url' target='_blank' class='btn btn-sm btn-warning'>
                     <i class='fa fa-file-pdf-o'></i> Summary
+                </a>";
+            });
+
+        $grid->column('missing_marks', __('Missing Marks'))
+            ->display(function () {
+                $url = admin_url("mru-academic-result-exports/{$this->id}/generate-missing-marks");
+                return "<a href='$url' target='_blank' class='btn btn-sm btn-danger'>
+                    <i class='fa fa-exclamation-triangle'></i> Missing
                 </a>";
             });
 
@@ -588,6 +551,28 @@ class MruAcademicResultExportController extends AdminController
         $haltedCases = $this->getHaltedCases($params);
         $retakeCases = $this->getRetakeCases($params);
         
+        // Generate charts
+        $chartData = [
+            ['label' => 'First Class', 'value' => count($firstClass), 'color' => '#1a5490'],
+            ['label' => 'Second Class Upper', 'value' => count($secondClassUpper), 'color' => '#2e7d32'],
+            ['label' => 'Second Class Lower', 'value' => count($secondClassLower), 'color' => '#f57c00'],
+            ['label' => 'Third Class', 'value' => count($thirdClass), 'color' => '#c62828'],
+            ['label' => 'Halted Cases', 'value' => count($haltedCases), 'color' => '#6a1b9a'],
+            ['label' => 'Retake Cases', 'value' => count($retakeCases), 'color' => '#455a64'],
+        ];
+        
+        // Sort by count descending for bar chart
+        usort($chartData, function($a, $b) {
+            return $b['value'] - $a['value'];
+        });
+        
+        $barChart = \App\Helpers\ChartHelper::generateBarChart($chartData, [
+            'width' => 800,
+            'height' => 500,
+            'title' => 'Student Distribution by Category',
+            'bgColor' => [248, 249, 250],
+        ]);
+        
         // Prepare data for PDF view
         $data = [
             'export' => $export,
@@ -598,6 +583,7 @@ class MruAcademicResultExportController extends AdminController
             'thirdClass' => $thirdClass,
             'haltedCases' => $haltedCases,
             'retakeCases' => $retakeCases,
+            'barChart' => $barChart,
         ];
         
         // Generate PDF

@@ -628,6 +628,69 @@
         Retake Cases: <strong>{{ count($retakeCases) }}</strong> | 
         TOTAL: <strong>{{ count($firstClass) + count($secondClassUpper) + count($secondClassLower) + count($thirdClass) + count($haltedCases) + count($retakeCases) }}</strong>
     </div>
+
+    @php
+        $total = count($firstClass) + count($secondClassUpper) + count($secondClassLower) + count($thirdClass) + count($haltedCases) + count($retakeCases);
+        
+        // Calculate data for insights
+        $categories = [
+            ['name' => 'First Class', 'count' => count($firstClass), 'color' => '#1a5490'],
+            ['name' => 'Second Class Upper', 'count' => count($secondClassUpper), 'color' => '#2e7d32'],
+            ['name' => 'Second Class Lower', 'count' => count($secondClassLower), 'color' => '#f57c00'],
+            ['name' => 'Third Class', 'count' => count($thirdClass), 'color' => '#c62828'],
+            ['name' => 'Halted Cases', 'count' => count($haltedCases), 'color' => '#6a1b9a'],
+            ['name' => 'Retake Cases', 'count' => count($retakeCases), 'color' => '#455a64'],
+        ];
+        
+        // Sort by count descending
+        usort($categories, function($a, $b) {
+            return $b['count'] - $a['count'];
+        });
+        
+        $topCategory = $categories[0];
+        $honoursDegree = count($firstClass) + count($secondClassUpper);
+        $honoursPercentage = $total > 0 ? ($honoursDegree / $total) * 100 : 0;
+        $passRate = $total > 0 ? ((count($firstClass) + count($secondClassUpper) + count($secondClassLower) + count($thirdClass)) / $total) * 100 : 0;
+    @endphp
+
+    <!-- Visual Analytics Section -->
+    <div style="page-break-before: always;"></div>
+    
+    <div style="text-align: center; margin-top: 20px; margin-bottom: 15px;">
+        <h2 style="color: #1a5490; font-size: 16pt; margin: 0; padding: 8px 0; border-bottom: 3px solid #1a5490;">
+            GRADE DISTRIBUTION ANALYTICS
+        </h2>
+    </div>
+
+    <!-- Bar Chart -->
+    <div style="margin: 20px 0; text-align: center;">
+        <img src="{{ $barChart }}" style="max-width: 100%; height: auto;" />
+    </div>
+
+    <!-- Key Insights Section -->
+    <div style="margin: 20px 0; background: #e3f2fd; padding: 12px; border-left: 4px solid #1a5490; border-radius: 3px;">
+        <h4 style="color: #1a5490; font-size: 9pt; margin: 0 0 8px 0;">
+            📊 Key Insights:
+        </h4>
+        <ul style="margin: 0; padding-left: 20px; font-size: 8pt; line-height: 1.6; color: #333;">
+            <li>
+                <strong>Highest Category:</strong> {{ $topCategory['name'] }} with {{ $topCategory['count'] }} students 
+                ({{ number_format($total > 0 ? ($topCategory['count'] / $total) * 100 : 0, 1) }}%)
+            </li>
+            <li>
+                <strong>Honours Degree Performance:</strong> {{ $honoursDegree }} students achieved First Class or Second Class Upper 
+                ({{ number_format($honoursPercentage, 1) }}% of total)
+            </li>
+            <li>
+                <strong>Overall Pass Rate:</strong> {{ number_format($passRate, 1) }}% successfully completed their programmes
+            </li>
+            @if(count($haltedCases) > 0)
+            <li>
+                <strong>Attention Required:</strong> {{ count($haltedCases) }} halted cases and {{ count($retakeCases) }} retake cases need intervention
+            </li>
+            @endif
+        </ul>
+    </div>
     
     <!-- Report Footer -->
     <div class="report-footer">

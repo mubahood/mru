@@ -431,6 +431,72 @@
                     No results found for the specified criteria.
                 </div>
             @endif
+
+            <!-- Students with Incomplete Marks Summary -->
+            @if(!empty($incompleteStudents) && count($incompleteStudents) > 0)
+                <div class="card shadow-sm mb-3" style="margin-top: 30px;">
+                    <div class="card-header" style="background-color: #d32f2f; color: white; padding: 12px;">
+                        <h5 class="mb-0" style="font-size: 14px;">
+                            <i class="bi bi-exclamation-triangle-fill"></i>
+                            STUDENTS WITH INCOMPLETE MARKS
+                        </h5>
+                        <small style="font-size: 10px;">
+                            Students who have submitted some results but are missing marks for certain courses
+                        </small>
+                    </div>
+                    <div class="card-body p-0">
+                        <div class="alert alert-info m-3 mb-2" style="font-size: 10px;">
+                            <i class="bi bi-info-circle"></i>
+                            <strong>Total students with incomplete marks: {{ count($incompleteStudents) }}</strong>
+                            <br>These students need to submit marks for the missing courses to complete their academic record.
+                        </div>
+                        
+                        <div class="table-responsive">
+                            <table class="table table-sm table-bordered table-hover mb-0" style="font-size: 9px;">
+                                <thead style="background-color: #1a5490; color: white; position: sticky; top: 0; z-index: 10;">
+                                    <tr>
+                                        <th style="width: 40px; text-align: center;">No.</th>
+                                        <th style="width: 100px;">Reg No</th>
+                                        <th style="width: 180px;">Student Name</th>
+                                        <th style="width: 150px;">Specialization</th>
+                                        <th style="width: 80px; text-align: center;">Total Courses</th>
+                                        <th style="width: 80px; text-align: center;">Marks Obtained</th>
+                                        <th style="width: 80px; text-align: center;">Marks Missing</th>
+                                        <th>Missing Courses</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach($incompleteStudents as $index => $student)
+                                        <tr style="{{ $index % 2 == 0 ? 'background-color: #ffffff;' : 'background-color: #f8f9fa;' }}">
+                                            <td style="text-align: center;">{{ $index + 1 }}</td>
+                                            <td><strong>{{ $student['regno'] }}</strong></td>
+                                            <td>{{ $student['name'] }}</td>
+                                            <td><small>{{ $student['specialization'] }}</small></td>
+                                            <td style="text-align: center; font-weight: bold;">{{ $student['total_courses'] }}</td>
+                                            <td style="text-align: center; font-weight: bold; color: #2e7d32;">
+                                                {{ $student['marks_obtained'] }}
+                                            </td>
+                                            <td style="text-align: center; font-weight: bold; color: #d32f2f;">
+                                                {{ $student['marks_missing_count'] }}
+                                            </td>
+                                            <td style="font-size: 8px;">
+                                                <span class="badge bg-danger" style="font-size: 7px;">
+                                                    {{ $student['missing_courses'] }}
+                                                </span>
+                                            </td>
+                                        </tr>
+                                    @endforeach
+                                </tbody>
+                            </table>
+                        </div>
+                        
+                        <div class="alert alert-warning m-3 mt-2" style="font-size: 9px;">
+                            <i class="bi bi-lightbulb"></i>
+                            <strong>Action Required:</strong> Contact the listed students to submit their missing course results.
+                        </div>
+                    </div>
+                </div>
+            @endif
         </div>
     </div>
 

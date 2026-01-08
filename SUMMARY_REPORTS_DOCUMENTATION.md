@@ -2,7 +2,7 @@
 
 ## Overview
 
-The Summary Reports system generates comprehensive PDF reports categorizing students by their academic performance according to the NCHE 2015 grading system. This documentation provides guidance for developers maintaining or extending this feature.
+The Summary Reports system generates comprehensive PDF reports categorizing students by their academic performance according to the NCHE 2015 grading system. Reports include **professional bar and pie charts** generated using PHP's GD library for visual data representation. This documentation provides guidance for developers maintaining or extending this feature.
 
 ---
 
@@ -10,11 +10,12 @@ The Summary Reports system generates comprehensive PDF reports categorizing stud
 
 1. [System Architecture](#system-architecture)
 2. [CGPA Grade Classification](#cgpa-grade-classification)
-3. [Key Components](#key-components)
-4. [Database Schema](#database-schema)
-5. [Usage Guide](#usage-guide)
-6. [Extending the System](#extending-the-system)
-7. [Troubleshooting](#troubleshooting)
+3. [Visual Analytics & Charts](#visual-analytics--charts)
+4. [Key Components](#key-components)
+5. [Database Schema](#database-schema)
+6. [Usage Guide](#usage-guide)
+7. [Extending the System](#extending-the-system)
+8. [Troubleshooting](#troubleshooting)
 
 ---
 
@@ -25,7 +26,7 @@ The Summary Reports system generates comprehensive PDF reports categorizing stud
 ```
 MruAcademicResultExportController
 ├── Summary Report Generation Methods
-│   ├── generateCompleteSummary() - All categories in one PDF
+│   ├── generateCompleteSummary() - All categories in one PDF + Charts
 │   ├── generateVCList() - First Class only
 │   ├── generateDeansList() - Second Class Upper only
 │   ├── generatePassCases() - Second Class Lower only
@@ -38,6 +39,11 @@ MruAcademicResultExportController
 │   ├── getIncompleteCases() - Students with insufficient courses
 │   └── getExportParams() - Parameter extraction
 │
+├── Chart Generation
+│   └── ChartHelper (app/Helpers/ChartHelper.php)
+│       ├── generateBarChart() - Horizontal bar charts
+│       └── generatePieChart() - Pie charts with legend
+│
 └── PDF Generation
     └── generateSummaryPDF() - Generic PDF generator
 ```
@@ -48,6 +54,14 @@ MruAcademicResultExportController
 User Request
     ↓
 Controller Method (e.g., generateCompleteSummary)
+    ↓
+Retrieve & Categorize Students (getPerformanceList, etc.)
+    ↓
+Generate Chart Images (ChartHelper)
+    ↓
+Pass Data + Charts to Blade View
+    ↓
+DomPDF Renders PDF with Embedded Charts
     ↓
 getExportParams() - Extract filters
     ↓
@@ -80,6 +94,81 @@ CGPA = SUM(CreditUnits × GradePoint) / SUM(CreditUnits)
 ```
 
 This weighted average ensures courses with more credit units have greater impact on overall performance.
+
+---
+
+## Visual Analytics & Charts
+
+### Overview
+
+The summary reports include professional **bar charts** and **pie charts** to visualize student grade distribution. Charts are generated server-side using PHP's GD library and embedded as base64-encoded PNG images in the PDF.
+
+### Chart Types
+
+#### 1. Horizontal Bar Chart
+- Shows student count for each category
+- Color-coded bars matching category colors
+- Sorted by count (descending)
+- Displays values both inside and outside bars
+- Grid lines for easy reading
+
+#### 2. Pie Chart with Legend
+- Visual percentage distribution
+- Professional color scheme
+- Detailed legend with counts and percentages
+- Anti-aliased rendering for smooth edges
+
+### ChartHelper Class
+
+Located in: `app/Helpers/ChartHelper.php`
+
+```php
+use App\Helpers\ChartHelper;
+
+// Generate bar chart
+$barChart = ChartHelper::generateBarChart($data, [
+    'width' => 800,
+    'height' => 500,
+    'title' => 'Student Distribution by Category',
+    'bgColor' => [248, 249, 250],
+]);
+
+// Generate pie chart
+$pieChart = ChartHelper::generatePieChart($data, [
+    'size' => 400,
+    'title' => 'Grade Distribution Percentage',
+    'bgColor' => [255, 255, 255],
+]);
+```
+
+**Data Format:**
+```php
+$data = [
+    ['label' => 'Category Name', 'value' => 100, 'color' => '#1a5490'],
+    // ... more categories
+];
+```
+
+**Return Value:** Base64-encoded PNG image data URL ready for HTML/PDF embedding
+
+### Color Scheme
+
+| Category | Color Code | Visual |
+|----------|-----------|--------|
+| First Class | #1a5490 | Enterprise Blue |
+| Second Class Upper | #2e7d32 | Success Green |
+| Second Class Lower | #f57c00 | Warning Orange |
+| Third Class | #c62828 | Red |
+| Halted Cases | #6a1b9a | Purple |
+| Retake Cases | #455a64 | Gray |
+
+### Key Insights Section
+
+The report automatically generates data-driven insights:
+- **Highest Category**: Most populous grade category
+- **Honours Degree Performance**: Combined First + Second Upper percentage
+- **Overall Pass Rate**: All passing grades percentage
+- **Attention Required**: Alert for intervention-needed cases
 
 ---
 

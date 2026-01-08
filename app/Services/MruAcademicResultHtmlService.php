@@ -6,6 +6,7 @@ use App\Models\MruResult;
 use App\Models\MruAcademicResultExport;
 use App\Models\MruStudent;
 use App\Models\Enterprise;
+use App\Helpers\IncompleteMarksTracker;
 
 /**
  * MRU Academic Result HTML Export Service
@@ -17,6 +18,7 @@ class MruAcademicResultHtmlService
     protected $studentsBySpecialization;
     protected $specializationData = [];
     protected $enterprise;
+    protected $incompleteTracker;
 
     public function __construct(MruAcademicResultExport $export)
     {
@@ -25,6 +27,7 @@ class MruAcademicResultHtmlService
         
         $this->export = $export;
         $this->enterprise = Enterprise::first();
+        $this->incompleteTracker = new IncompleteMarksTracker();
         $this->loadData();
     }
 
@@ -37,6 +40,7 @@ class MruAcademicResultHtmlService
             'export' => $this->export,
             'enterprise' => $this->enterprise,
             'specializationData' => $this->specializationData,
+            'incompleteStudents' => $this->incompleteTracker->getIncompleteStudents(),
             'logoPath' => $this->getLogoPath(),
         ];
     }
@@ -133,10 +137,19 @@ class MruAcademicResultHtmlService
                 ->get()
                 ->groupBy('regno');
 
-            // Calculate status for each student
-            $studentsWithStatus = $students->map(function ($student) use ($courses, $results) {
+            // Calculate status for each student and filter out those with no marks
+            $studentsWithStatus = $students->map(function ($student) use ($courses, $results, $specName) {
                 $studentResults = $results->get($student->regno, collect());
+                
+                // Skip students with no marks at all (completely missed all subjects)
+                if ($studentResults->isEmpty()) {
+                    return null;
+                }
+                
                 $status = $this->calculateStatus($student, $courses, $studentResults);
+                
+                // Use the helper to track incomplete students
+                $this->incompleteTracker->trackStudent($student, $courses, $results, $specName);
                 
                 // Add status to student object
                 $student->status = $status['status'];
@@ -146,16 +159,19 @@ class MruAcademicResultHtmlService
                 $student->totalCourses = $status['totalCourses'];
                 
                 return $student;
-            });
+            })->filter(); // Remove null values (students with no marks)
 
-            $this->specializationData[] = [
-                'spec_id' => $spec,
-                'spec_name' => $specName,
-                'students' => $studentsWithStatus,
-                'courses' => $courses,
-                'results' => $results,
-                'student_count' => $students->count(),
-            ];
+            // Only add specialization if there are students with marks
+            if ($studentsWithStatus->isNotEmpty()) {
+                $this->specializationData[] = [
+                    'spec_id' => $spec,
+                    'spec_name' => $specName,
+                    'students' => $studentsWithStatus,
+                    'courses' => $courses,
+                    'results' => $results,
+                    'student_count' => $studentsWithStatus->count(),
+                ];
+            }
         }
     }
 

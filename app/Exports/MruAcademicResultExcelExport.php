@@ -6,6 +6,7 @@ use App\Models\MruResult;
 use App\Models\MruAcademicResultExport;
 use App\Models\MruStudent;
 use App\Exports\MruAcademicResultSpecializationSheet;
+use App\Helpers\IncompleteMarksTracker;
 use Maatwebsite\Excel\Concerns\WithMultipleSheets;
 
 /**
@@ -21,10 +22,12 @@ class MruAcademicResultExcelExport implements WithMultipleSheets
 {
     protected $export;
     protected $specializationData = [];
+    protected $incompleteTracker;
 
     public function __construct(MruAcademicResultExport $export)
     {
         $this->export = $export;
+        $this->incompleteTracker = new IncompleteMarksTracker();
         $this->loadData();
     }
 
@@ -44,6 +47,13 @@ class MruAcademicResultExcelExport implements WithMultipleSheets
                 $data['courses'],
                 $data['results'],
                 $minRequired
+            );
+        }
+        
+        // Add incomplete students sheet if any exist
+        if ($this->incompleteTracker->hasIncompleteStudents()) {
+            $sheets[] = new \App\Exports\MruIncompleteStudentsSheet(
+                $this->incompleteTracker->getIncompleteStudents()
             );
         }
         
@@ -123,11 +133,36 @@ class MruAcademicResultExcelExport implements WithMultipleSheets
                     return $studentResults->keyBy('courseid');
                 });
 
-            $this->specializationData[$spec] = [
-                'students' => $students,
-                'courses' => $courses,
-                'results' => $results,
-            ];
+            // Filter out students with no marks and track incomplete students
+            $studentsWithMarks = $students->filter(function($student) use ($results, $courses, $spec) {
+                $studentResults = $results->get($student->regno, collect());
+                
+                // Skip students with no marks at all
+                if ($studentResults->isEmpty()) {
+                    return false;
+                }
+                
+                // Get specialization name
+                $specInfo = \DB::table('acad_specialisation')
+                    ->select('spec')
+                    ->where('spec_id', $spec)
+                    ->first();
+                $specName = $specInfo ? $specInfo->spec : 'Specialization ' . $spec;
+                
+                // Use the helper to track incomplete students
+                $this->incompleteTracker->trackStudent($student, $courses, $results, $specName);
+                
+                return true;
+            });
+
+            // Only add specialization if there are students with marks
+            if ($studentsWithMarks->isNotEmpty()) {
+                $this->specializationData[$spec] = [
+                    'students' => $studentsWithMarks,
+                    'courses' => $courses,
+                    'results' => $results,
+                ];
+            }
         }
     }
 

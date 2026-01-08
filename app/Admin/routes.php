@@ -73,6 +73,7 @@ Route::group([
     // Summary Reports for Academic Result Exports
     $router->get('mru-academic-result-exports/{id}/summary-reports', 'MruAcademicResultExportController@summaryReports');
     $router->get('mru-academic-result-exports/{id}/generate-complete-summary', 'MruAcademicResultExportController@generateCompleteSummary');
+    $router->get('mru-academic-result-exports/{id}/generate-missing-marks', '\App\Http\Controllers\MruAcademicResultGenerateController@generateMissingMarks');
     $router->get('mru-academic-result-exports/{id}/generate-vc-list', 'MruAcademicResultExportController@generateVCList');
     $router->get('mru-academic-result-exports/{id}/generate-deans-list', 'MruAcademicResultExportController@generateDeansList');
     $router->get('mru-academic-result-exports/{id}/generate-pass-cases', 'MruAcademicResultExportController@generatePassCases');
