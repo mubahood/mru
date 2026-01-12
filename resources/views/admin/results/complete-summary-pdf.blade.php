@@ -343,23 +343,24 @@
         </table>
     </div>
 
+    {{-- Formal Senate Recommendation Statement --}}
+    <p style="margin: 12px 0 15px 0; font-size: 8pt; line-height: 1.6; text-align: justify;">
+        On recommendation of the Faculty Board, the following results are hereby presented to the Senate Examinations Board for further consideration and onward presentation to the Senate for final approval in the categories indicated below:
+    </p>
+
     {{-- 
-        SECTION 1: FIRST CLASS (HONOURS)
+        SECTION 1: VC'S LIST (FIRST CLASS)
         CGPA Range: 4.40 - 5.00
-        Description: Highest academic achievement category
+        Description: Highest academic achievement category - Vice Chancellor's Honor List
     --}}
     <div class="section-header">
-        FIRST CLASS (HONOURS)
+        1. VC'S LIST (FIRST CLASS)
         <span class="count">{{ count($firstClass) }} Students</span>
     </div>
     
-    <div style="margin: 8px 0; font-size: 8pt; line-height: 1.4; text-align: justify;">
+    <p style="margin: 8px 0; font-size: 8pt; line-height: 1.4; text-align: justify;">
         The following students obtained a CGPA between <strong>4.40</strong> and <strong>5.00</strong>.
-    </div>
-    
-    <div class="criteria-box">
-        <strong>Criteria:</strong> Students with Cumulative Grade Point Average (CGPA) between <strong>4.40 and 5.00</strong>
-    </div>
+    </p>
 
     @if(count($firstClass) > 0)
     <table class="data-table">
@@ -392,19 +393,15 @@
     <div class="no-data">No students meet the First Class criteria (CGPA 4.40 - 5.00)</div>
     @endif
 
-    <!-- Dean's List / Second Class Upper -->
+    <!-- Dean's List -->
     <div class="section-header">
-        SECOND CLASS UPPER DIVISION
+        2. DEAN'S LIST (SECOND CLASS UPPER DIVISION)
         <span class="count">{{ count($secondClassUpper) }} Students</span>
     </div>
     
-    <div style="margin: 8px 0; font-size: 8pt; line-height: 1.4; text-align: justify;">
+    <p style="margin: 8px 0; font-size: 8pt; line-height: 1.4; text-align: justify;">
         The following students obtained a CGPA between <strong>3.60</strong> and <strong>4.39</strong>.
-    </div>
-    
-    <div class="criteria-box">
-        <strong>Criteria:</strong> Students with Cumulative Grade Point Average (CGPA) between <strong>3.60 and 4.39</strong>
-    </div>
+    </p>
 
     @if(count($secondClassUpper) > 0)
     <table class="data-table">
@@ -439,17 +436,13 @@
 
     <!-- Second Class Lower -->
     <div class="section-header">
-        SECOND CLASS LOWER DIVISION
+        4. SECOND CLASS LOWER DIVISION
         <span class="count">{{ count($secondClassLower) }} Students</span>
     </div>
     
-    <div style="margin: 8px 0; font-size: 8pt; line-height: 1.4; text-align: justify;">
+    <p style="margin: 8px 0; font-size: 8pt; line-height: 1.4; text-align: justify;">
         The following students obtained a CGPA between <strong>2.80</strong> and <strong>3.59</strong>.
-    </div>
-    
-    <div class="criteria-box">
-        <strong>Criteria:</strong> Students with Cumulative Grade Point Average (CGPA) between <strong>2.80 and 3.59</strong>
-    </div>
+    </p>
 
     @if(count($secondClassLower) > 0)
     <table class="data-table">
@@ -482,19 +475,15 @@
     <div class="no-data">No students in this category</div>
     @endif
 
-    <!-- Third Class (Pass) -->
+    <!-- Normal Progress -->
     <div class="section-header">
-        THIRD CLASS (PASS)
+        3. NORMAL PROGRESS
         <span class="count">{{ count($thirdClass) }} Students</span>
     </div>
     
-    <div style="margin: 8px 0; font-size: 8pt; line-height: 1.4; text-align: justify;">
-        The following students obtained a CGPA between <strong>2.00</strong> and <strong>2.79</strong>.
-    </div>
-    
-    <div class="criteria-box">
-        <strong>Criteria:</strong> Students with Cumulative Grade Point Average (CGPA) between <strong>2.00 and 2.79</strong>
-    </div>
+    <p style="margin: 8px 0; font-size: 8pt; line-height: 1.4; text-align: justify;">
+        The following candidates, whose registration numbers appear below, <strong>PASSED</strong> their semester examinations and were recommended to proceed subject to the approval of the SENATE Examination Board.
+    </p>
 
     @if(count($thirdClass) > 0)
     <table class="data-table">
@@ -533,13 +522,9 @@
         <span class="count">{{ count($haltedCases) }} Students</span>
     </div>
     
-    <div style="margin: 8px 0; font-size: 8pt; line-height: 1.4; text-align: justify;">
+    <p style="margin: 8px 0; font-size: 8pt; line-height: 1.4; text-align: justify;">
         The following students have been <strong>HALTED</strong> as their number of retake courses exceeds the maximum semester load.
-    </div>
-    
-    <div class="criteria-box">
-        <strong>Status:</strong> Students with retake courses exceeding maximum semester load (6 courses)
-    </div>
+    </p>
 
     @if(count($haltedCases) > 0)
     <table class="data-table">
@@ -574,17 +559,13 @@
 
     <!-- Retake Cases -->
     <div class="section-header">
-        RETAKE CASES (PASS DEGREE)
+        5. RETAKE CASES
         <span class="count">{{ count($retakeCases) }} Students</span>
     </div>
     
-    <div style="margin: 8px 0; font-size: 8pt; line-height: 1.4; text-align: justify;">
-        The following candidates were recommended to <strong>RETAKE</strong> the papers indicated against their registration numbers when next offered, subject to the approval of the <strong>SENATE Examination Board</strong>.
-    </div>
-    
-    <div class="criteria-box">
-        <strong>Criteria:</strong> Students who failed one or more courses - Score < 50 (Undergraduate) or < 60 (Postgraduate)
-    </div>
+    <p style="margin: 8px 0; font-size: 8pt; line-height: 1.4; text-align: justify;">
+        The following candidates were recommended to <strong>RETAKE</strong> the papers indicated against their registration numbers when next offered, subject to the approval of the SENATE Examination Board.
+    </p>
 
     @if(count($retakeCases) > 0)
     <table class="data-table">
