@@ -70,7 +70,7 @@ return [
             'database' => env('REMOTE_DB_DATABASE', 'campus_dynamics'),
             'username' => env('REMOTE_DB_USERNAME', 'dbmanager'),
             'password' => env('REMOTE_DB_PASSWORD', '24thdecember1977'),
-            'unix_socket' => env('DB_SOCKET', ''),
+            'unix_socket' => '', // Must be empty for remote TCP connection
             'charset' => 'utf8mb4',
             'collation' => 'utf8mb4_unicode_ci',
             'prefix' => '',

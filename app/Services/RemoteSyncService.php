@@ -119,18 +119,48 @@ class RemoteSyncService
         $startId = $this->syncRecord->start_id;
         $limit = $this->syncRecord->range_limit;
         $processed = 0;
+        $config = $this->syncRecord->sync_config ?? [];
         
         // Determine the primary key column
         $primaryKey = $this->getPrimaryKeyColumn($tableName);
         
+        // If starting fresh (start_id = 0), get the MAX ID from remote to start from top
+        if ($startId === 0) {
+            try {
+                $maxRecord = $this->remoteDb->table($tableName)
+                    ->selectRaw("MAX(`{$primaryKey}`) as max_id")
+                    ->first();
+                $startId = $maxRecord->max_id ?? PHP_INT_MAX;
+                
+                Log::info("Starting sync from latest record", [
+                    'table' => $tableName,
+                    'max_id' => $startId
+                ]);
+            } catch (Exception $e) {
+                Log::warning("Could not get MAX ID, using PHP_INT_MAX: " . $e->getMessage());
+                $startId = PHP_INT_MAX;
+            }
+        }
+        
         while (true) {
             // Fetch batch from remote
             // CRITICAL: Use raw column name to preserve case sensitivity
-            $records = $this->remoteDb->table($tableName)
-                ->whereRaw("`{$primaryKey}` > ?", [$startId])
-                ->orderByRaw("`{$primaryKey}` ASC")
-                ->limit($limit)
-                ->get();
+            // ORDER BY DESC to sync latest/newest records first (most important for recent students)
+            $query = $this->remoteDb->table($tableName)
+                ->whereRaw("`{$primaryKey}` < ?", [$startId === 0 ? PHP_INT_MAX : $startId])
+                ->orderByRaw("`{$primaryKey}` DESC")
+                ->limit($limit);
+            
+            // For acad_results, optionally filter by academic year to prioritize recent data
+            if ($tableName === 'acad_results') {
+                $minAcadYear = $config['min_academic_year'] ?? null;
+                if ($minAcadYear) {
+                    $query->where('acad', '>=', $minAcadYear);
+                    Log::info("Filtering results by academic year >= {$minAcadYear}");
+                }
+            }
+            
+            $records = $query->get();
             
             if ($records->isEmpty()) {
                 break;
@@ -155,12 +185,15 @@ class RemoteSyncService
                 }
                 
                 // CRITICAL: Skip records with ID = 0 or NULL to prevent infinite loops
-                // WHERE ID > 0 would refetch ID=0 indefinitely
+                // WHERE ID < X in DESC order would refetch ID=0 or large IDs indefinitely
                 if (empty($currentRecordId) || $currentRecordId === 0 || $currentRecordId === '0') {
                     Log::warning("Skipping record with invalid {$primaryKey}={$currentRecordId} in {$tableName}");
                     $this->syncRecord->incrementSkipped();
-                    // Still need to advance cursor - use previous startId + 1 as fallback
-                    $startId = $startId + 1;
+                    // Still need to advance cursor - use previous startId - 1 as fallback for DESC order
+                    $startId = $startId - 1;
+                    if ($startId < 0) {
+                        break; // Reached the beginning
+                    }
                     $processed++;
                     continue;
                 }
